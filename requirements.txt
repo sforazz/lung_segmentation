@@ -35,5 +35,7 @@ tf-estimator-nightly==1.13.0.dev2019012901
 tf-nightly-gpu==1.13.0.dev20190129
 toolz==0.9.0
 Werkzeug==0.14.1
+opencv-python==4.1.0.25
+requests==2.22.0
 git+https://github.com/sforazz/basecore.git#egg=basecore
 git+https://github.com/sforazz/dl.git#egg=dl

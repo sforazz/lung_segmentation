@@ -12,6 +12,7 @@ import time
 import glob
 import os
 from datetime import datetime
+from lung_segmentation.utils import untar, get_weights
 
 
 now = datetime.now()
@@ -51,7 +52,7 @@ def data_preparation(input_dir, work_dir, network_weights):
         filename, _, _ = mouse_lung_data_preparation(str(folder), work_dir)
         if filename:
             logger.info('Converting DICOM data to NRRD.')
-            converter = DicomConverter(filename, clean=True)
+            converter = DicomConverter(filename, clean=True, bin_path=os.environ['bin_path'])
             converted_data = converter.convert(convert_to='nrrd', method='mitk')
             logger.info('Automatically cropping the nrrd file to have one mouse per image.')
             cropping = ImageCropping(converted_data)
@@ -90,12 +91,15 @@ def data_preparation(input_dir, work_dir, network_weights):
                 save_results(im, to_segment[i])
                 z = z + s
 
-weights = [w for w in sorted(glob.glob(os.path.join(os.path.split(__file__)[0], 'weights/*.h5')))]
-# weights = ['/home/fsforazz/Desktop/PhD_project/fibrosis_project/weights_bin_crossEnt_CV_whole_ts/original/double_feat_per_layer_cross_ent_fold_1.h5',
-#            '/home/fsforazz/Desktop/PhD_project/fibrosis_project/weights_bin_crossEnt_CV_whole_ts/original/double_feat_per_layer_cross_ent_fold_2.h5',
-#            '/home/fsforazz/Desktop/PhD_project/fibrosis_project/weights_bin_crossEnt_CV_whole_ts/original/double_feat_per_layer_cross_ent_fold_3.h5',
-#            '/home/fsforazz/Desktop/PhD_project/fibrosis_project/weights_bin_crossEnt_CV_whole_ts/original/double_feat_per_layer_cross_ent_fold_4.h5',
-#            '/home/fsforazz/Desktop/PhD_project/fibrosis_project/weights_bin_crossEnt_CV_whole_ts/original/double_feat_per_layer_cross_ent_fold_5.h5']
+
+parent_dir = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
+os.environ['bin_path'] = os.path.join(parent_dir, 'bin/')
+
+# url = ''
+# tar_file = get_weights(url, parent_dir)
+# untar(tar_file)
+
+weights = [w for w in sorted(glob.glob(os.path.join(parent_dir, 'weights/*.h5')))]
 
 logger.info('Segmentation started!')
 start = time.perf_counter()
