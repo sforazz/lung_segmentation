@@ -14,10 +14,6 @@ if __name__ == "__main__":
                         help=('Existing directory with on CT image to segment per folder.'))
     parser.add_argument('--work_dir', '-w', type=str,
                         help=('Directory where to store the results.'))
-    parser.add_argument('--no-crop', action='store_true',
-                        help=('Whether or not to enable the automatic cropping of the CT '
-                              'data. Specify this ONLY if you have ONE mouse per CT image.'
-                              ' By default the cropping is enabled.'))
     
     args = parser.parse_args()
 
@@ -82,7 +78,7 @@ if __name__ == "__main__":
         logger.info('Binary executables found in {}'.format(bin_dir))
 
 
-    run_segmentation(args.input_dir, args.work_dir, weights, no_crop=args.no_crop)
+    run_segmentation(args.input_dir, args.work_dir, weights)
     
     stop = time.perf_counter()
     logger.info('Process successfully ended after {} seconds!'.format(int(stop-start)))
