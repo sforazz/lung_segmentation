@@ -14,7 +14,7 @@ import os
 logger = logging.getLogger('lungs_segmentation')
 
 
-def run_segmentation(input_dir, work_dir, network_weights):
+def run_segmentation(input_dir, work_dir, network_weights, no_crop=False):
     
     input_dir = Path(input_dir)
     logger.info('Input dir: {}'.format(input_dir))
@@ -29,10 +29,16 @@ def run_segmentation(input_dir, work_dir, network_weights):
             logger.info('Converting DICOM data to NRRD.')
             converter = DicomConverter(filename, clean=True, bin_path=os.environ['bin_path'])
             converted_data = converter.convert(convert_to='nrrd', method='mitk')
-            logger.info('Automatically cropping the nrrd file to have one mouse per image.')
-            cropping = ImageCropping(converted_data)
-            to_segment = cropping.crop_wo_mask()
-            logger.info('Found {} mice in the NRRD file.'.format(len(to_segment)))
+            if not no_crop:
+                logger.info('Automatically cropping the nrrd file to have one mouse per image.')
+                cropping = ImageCropping(converted_data)
+                to_segment = cropping.crop_wo_mask()
+                logger.info('Found {} mice in the NRRD file.'.format(len(to_segment)))
+            else:
+                logger.info('Automatically cropping was disabled. This means the application'
+                            ' will assume that there is only one mouse in the image. If this is '
+                            'not true, please run the segmentation again without --no-crop.')
+                to_segment = [converted_data]
             test_set = []
             n_slices = []
             logger.info('Pre-processing the data before feeding the images into the segmentation network.')
