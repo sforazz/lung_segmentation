@@ -5,9 +5,10 @@ from datetime import datetime
 import logging
 
 
-def get_weights(url, location):
+def get_files(url, location, file, ext='.tar.gz'):
+
     r = requests.get(url)
-    with open(os.path.join(location, 'weights.tar.gz'), 'wb') as f:
+    with open(os.path.join(location, file+ext), 'wb') as f:
         f.write(r.content)
     print(r.status_code)
     print(r.headers['content-type'])
@@ -17,6 +18,7 @@ def get_weights(url, location):
 
  
 def untar(fname):
+
     if (fname.endswith("tar.gz")):
         tar = tarfile.open(fname)
         tar.extractall()

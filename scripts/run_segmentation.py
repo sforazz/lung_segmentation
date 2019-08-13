@@ -1,7 +1,7 @@
 import time
 import glob
 import os
-from lung_segmentation.utils import untar, get_weights, create_log
+from lung_segmentation.utils import untar, get_files, create_log
 import argparse
 from lung_segmentation.run_segmentation import run_segmentation
 
@@ -25,33 +25,36 @@ if __name__ == "__main__":
         os.mkdir(log_dir)
     
     logger = create_log(log_dir)
+
     start = time.perf_counter()
     logger.info('Process started!')
+
     weights_dir = os.path.join(parent_dir, 'weights')
     bin_dir = os.path.join(parent_dir, 'bin')
+
     if not os.path.isdir(weights_dir):
         logger.info('No pre-trained network weights, I will try to download them.')
         try:
             url = ''
-            tar_file = get_weights(url, parent_dir)
+            tar_file = get_files(url, parent_dir, 'weights')
             untar(tar_file)       
         except:
-            raise Exception('Unable to download weights!')
             logger.error('Pre-trained weights cannot be downloaded. Please check '
                          'your connection and retry or download them manually '
                          'from the repository.')
+            raise Exception('Unable to download network weights!')
     else:
         logger.info('Pre-trained network weights found in {}'.format(weights_dir))
     
     weights = [w for w in sorted(glob.glob(os.path.join(parent_dir, 'weights/*.h5')))]
     if len(weights) == 5:
-        logger.info('{0} weights files found in {1}. Five fold inference will be calculated.'
+        logger.info('{0} weights files found in {1}. Five folds inference will be calculated.'
                     .format(len(weights), weights_dir))
     elif len(weights) < 5:
         logger.warning('Only {0} weights files found in {1}. There should be 5. Please check '
-                       'the repository and download them again in order to run the five fold '
+                       'the repository and download them again in order to run the five folds '
                        'inference will be calculated. The segmentation will still be calculated '
-                       'using {0}-fold cross validation but the results might be sub-optimal.'
+                       'using {0}-folds cross validation but the results might be sub-optimal.'
                        .format(len(weights), weights_dir))
     else:
         logger.error('{} weights file found in {1}. This is not possible since the model was '
@@ -60,26 +63,22 @@ if __name__ == "__main__":
                      .format(len(weights), weights_dir))
     
     if not os.path.isdir(bin_dir):
-        logger.info('No directory containing the binary executable found. '
+        logger.info('No directory containing the binary executables found. '
                     'I will try to download it from the repository.')
         try:
             url = ''
-            tar_file = get_weights(url, parent_dir)
+            tar_file = get_files(url, parent_dir, 'bin')
             untar(tar_file)
         except:
-            raise Exception('Unable to download binary files!')
             logger.error('Binary files cannot be downloaded. Please check '
                          'your connection and retry or download them manually '
                          'from the repository.')
+            raise Exception('Unable to download binary files!')
     else:
         logger.info('Binary executables found in {}'.format(bin_dir))
 
-    
-#     input_dir = '/mnt/sdb/test_lung_seg/'
-#     work_dir = '/mnt/sdb/test_lung_seg_out/'
 
     run_segmentation(args.input_dir, args.work_dir, weights)
-#     run_segmentation(input_dir, work_dir, weights)
     
     stop = time.perf_counter()
-    logger.info('Process ended after {} seconds!'.format(int(stop-start)))
+    logger.info('Process successfully ended after {} seconds!'.format(int(stop-start)))
