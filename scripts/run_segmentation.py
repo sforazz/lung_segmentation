@@ -10,10 +10,12 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('input_dir', type=str,
+    parser.add_argument('--input_dir', '-i', type=str,
                         help=('Existing directory with on CT image to segment per folder.'))
-    parser.add_argument('work_dir', type=str,
+    parser.add_argument('--work_dir', '-w', type=str,
                         help=('Directory where to store the results.'))
+    
+    args = parser.parse_args()
 
     parent_dir = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
     os.environ['bin_path'] = os.path.join(parent_dir, 'bin/')
@@ -34,6 +36,7 @@ if __name__ == "__main__":
             tar_file = get_weights(url, parent_dir)
             untar(tar_file)       
         except:
+            raise Exception('Unable to download weights!')
             logger.error('Pre-trained weights cannot be downloaded. Please check '
                          'your connection and retry or download them manually '
                          'from the repository.')
@@ -64,13 +67,13 @@ if __name__ == "__main__":
             tar_file = get_weights(url, parent_dir)
             untar(tar_file)
         except:
+            raise Exception('Unable to download binary files!')
             logger.error('Binary files cannot be downloaded. Please check '
                          'your connection and retry or download them manually '
                          'from the repository.')
     else:
         logger.info('Binary executables found in {}'.format(bin_dir))
-    
-    args = parser.parse_args()
+
     
 #     input_dir = '/mnt/sdb/test_lung_seg/'
 #     work_dir = '/mnt/sdb/test_lung_seg_out/'
