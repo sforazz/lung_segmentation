@@ -46,6 +46,7 @@ setup(name='lung_segmentation',
       zip_safe=False,
       install_requires=pkgs,
       dependency_links=new_links,
+      packages=find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']),
       classifiers=[
           'Intended Audience :: Science/Research',
           'Programming Language :: Python',
