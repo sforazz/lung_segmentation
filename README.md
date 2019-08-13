@@ -3,7 +3,7 @@ This repository contains a deep learning application to segment lungs from CT im
 However, the application provided here is only for clinical CT mouse lung segmentation, but it will be expanded soon to include the other 2 modalities.
 
 # Installation
-Currently, this application is only supported for Linux (Ubuntu) operative system, because it needs some executable that are build on this OP.
+Currently, this application is only supported for Linux (Ubuntu) operative system, because it needs some executables that are build on this OP.
 To install it, follow the following steps:
 - Clone or download the repository.
 - Open a terminal and cd into it (`cd lung_segmentation`, if the repository is in the current directory)
@@ -19,7 +19,7 @@ python run_segmentation.py --input_dir path/to/dicom_data --working_dir path/to/
 ```
 The application will try to automatically download the pre-trained network weights and all the binary files it needs. If something goes wrong you will have to manually download them from [here](insert link) and store them in the repository folder.
 By default, the application will run a 5-folds cross validation inference using 5 different weights files and at the end it will take the mean of each prediction in order to provide the best segmentation.
-This application has been built to automatically crop the individual DICOM folder (mouse_1 in the example above) in order to have one mouse per image. So if you acquired your clinical mouse CT data in batches of more than 1 mouse this application should take care of it automatically. If you have only one mouse per DICOM folder please specify `--no-crop` when you run the `run_segmentation.py`.
+This application has been built to automatically crop the individual DICOM folder (mouse_1 in the example above) in order to have one mouse per image. So if you acquired your clinical mouse CT data in batches of more than 1 mouse this application should take care of it automatically. If you have one mouse per image, the cropping will simply remove part of the background.
 All the log files will be stored in the `logs` directory. If something went wrong, you should find more information there.
 
 # Input data structure
