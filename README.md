@@ -40,3 +40,6 @@ input_dir
     .
 ```
 To see an example please download the test data from [here](insert link)
+
+# Results
+Right now, you will get a folder for each sub-folder in the input directory (mouse_1, mouse_2 in the structure above). Each folder will contain one NRRD file per mouse with the corresponding lung mask. For example, if there were 4 mice in one CT image, you will get 4 NRRD files (named basename_cropped_mouse_\*.nrrd) with the cropped mouse data, and 4 NRRD files with the corresponding segmented lungs (named basename_cropped_mouse_\*_lung_seg.nrrd). There will be other files with information about the coordinates used for cropping. Those are planned to be used to convert the individual NRRD segmentation back to DICOM but this functionality is not implemented yet. They can be ignored for now.
