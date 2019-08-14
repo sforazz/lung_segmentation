@@ -22,6 +22,9 @@ def install_deps():
 
 pkgs, new_links = install_deps()
 
+pkgs.append('tensorflow==1.13.2')
+# pkgs.append('tf-nightly-gpu==1.13.0.dev20190129')
+
 setup(name='lung_segmentation',
       version='1.0',
       description='Application to segment lungs using Deep Learning',
@@ -31,11 +34,8 @@ setup(name='lung_segmentation',
       author_email='f.sforazzini@dkfz.de',
       license='Apache 2.0',
       zip_safe=False,
-      install_requires=['requests==2.22.0',
-                        'tensorflow==1.14.0',
-			],
-      dependency_links=['git+https://github.com/sforazz/basecore.git#egg=basecore',
-                        'git+https://github.com/sforazz/dl.git#egg=dl'],
+      install_requires=pkgs,
+      dependency_links=new_links,
       packages=find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']),
       classifiers=[
           'Intended Audience :: Science/Research',
