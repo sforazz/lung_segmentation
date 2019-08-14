@@ -15,24 +15,24 @@ To install it, follow the following steps:
 # Usage
 In order to run the lung segmentation application you then just need to type:
 ```
-python run_segmentation.py --input_dir path/to/dicom_data --working_dir path/to/store/results
+python run_segmentation.py --input_dir path/to/dicom_data --work_dir path/to/store/results
 ```
 The application will try to automatically download the pre-trained network weights and all the binary files it needs. If something goes wrong you will have to manually download them from [here](insert link) and store them in the repository folder.
 By default, the application will run a 5-folds cross validation inference using 5 different weights files and at the end it will take the mean of each prediction in order to provide the best segmentation.
-This application has been built to automatically crop the individual DICOM folder (mouse_1 in the example above) in order to have one mouse per image. So if you acquired your clinical mouse CT data in batches of more than 1 mouse this application should take care of it automatically. If you have one mouse per image, the cropping will simply remove part of the background.
+This application has been built to automatically crop the individual DICOM folder (CT_1 in the example below) in order to have one mouse per image. So if you acquired your clinical mouse CT data in batches of more than 1 mouse this application should take care of it automatically. If you have one mouse per image, the cropping will simply remove part of the background.
 All the log files will be stored in the `logs` directory. If something went wrong, you should find more information there.
 
 # Input data structure
 The structure of the `--input_dir` needs to be as described below:
 ```
 input_dir
-├── mouse_1
+├── CT_1
 │   ├── dicom_data_1.IMA
 │   ├── dicom_data_2.IMA
     .
     .
     .
-├── mouse_2
+├── CT_2
 │   ├── dicom_data_1.IMA
 │   ├── dicom_data_2.IMA
     .
@@ -42,4 +42,4 @@ input_dir
 To see an example please download the test data from [here](insert link)
 
 # Results
-Right now, you will get a folder for each sub-folder in the input directory (mouse_1, mouse_2 in the structure above). Each folder will contain one NRRD file per mouse with the corresponding lung mask. For example, if there were 4 mice in one CT image, you will get 4 NRRD files (named basename_cropped_mouse_\*.nrrd) with the cropped mouse data, and 4 NRRD files with the corresponding segmented lungs (named basename_cropped_mouse_\*_lung_seg.nrrd). There will be other files with information about the coordinates used for cropping. Those are planned to be used to convert the individual NRRD segmentation back to DICOM but this functionality is not implemented yet. They can be ignored for now.
+Right now, you will get a folder for each sub-folder in the input directory (CT_1, CT_2 in the structure above). Each folder will contain one NRRD file per mouse with the corresponding lung mask. For example, if there were 4 mice in CT_1, you will get folder called 'CT_1' in the `--work_dir` containing 4 NRRD files (named basename_cropped_mouse_\*.nrrd) with the cropped mouse data, and 4 NRRD files with the corresponding segmented lungs (named basename_cropped_mouse_\*_lung_seg.nrrd). There will be other files with information about the coordinates used for cropping. Those are planned to be used to convert the individual NRRD segmentation back to DICOM but this functionality is not implemented yet. They can be ignored for now.
