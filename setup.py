@@ -1,28 +1,17 @@
 from setuptools import setup, find_packages
 
+pkgs = ['Keras==2.2.4',
+	'nibabel==2.5.0',
+	'numpy==1.17.0',
+	'pydicom==1.3.0',
+	'pynrrd==0.4.0',
+	'scikit-learn==0.21.3',
+	'scikit-image==0.15.0',
+	'requests==2.22.0',
+	'opencv-python==4.1.0.25',
+	'pandas==0.25.0']
 
-def install_deps():
-    """Reads requirements.txt and preprocess it
-    to be feed into setuptools.
-
-    Returns:
-         list of packages and dependency links.
-    """
-    default = open('requirements.txt', 'r').readlines()
-    new_pkgs = []
-    links = []
-    for resource in default:
-        if 'git+https' in resource:
-            pkg = resource.split('#')[-1]
-            links.append(resource.strip())
-            new_pkgs.append(pkg.replace('egg=', '').rstrip())
-        else:
-            new_pkgs.append(resource.strip())
-    return new_pkgs, links
-
-pkgs, new_links = install_deps()
-
-pkgs.append('tensorflow==1.13.2')
+pkgs.append('tensorflow==1.13.1')
 # pkgs.append('tf-nightly-gpu==1.13.0.dev20190129')
 
 setup(name='lung_segmentation',
@@ -35,7 +24,6 @@ setup(name='lung_segmentation',
       license='Apache 2.0',
       zip_safe=False,
       install_requires=pkgs,
-      dependency_links=new_links,
       packages=find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']),
       classifiers=[
           'Intended Audience :: Science/Research',

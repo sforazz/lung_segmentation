@@ -1,12 +1,12 @@
 import logging
 from pathlib import Path
 import nrrd
-from basecore.process.preprocess import mouse_lung_data_preparation
-from basecore.converters.dicom import DicomConverter
-from basecore.process.crop import ImageCropping
-from dl.models.unet import mouse_lung_seg
-from dl.utils.mouse_segmentation import save_results, preprocessing, postprocessing
-from basecore.process.postprocess import binarization
+from lung_segmentation.utils import dicom_check
+from lung_segmentation.converters.dicom import DicomConverter
+from lung_segmentation.crop import ImageCropping
+from lung_segmentation.models import unet_lung
+from lung_segmentation.utils import save_results, preprocessing, postprocessing
+from lung_segmentation.utils import binarization
 import numpy as np
 import os
 
@@ -14,7 +14,7 @@ import os
 logger = logging.getLogger('lungs_segmentation')
 
 
-def run_segmentation(input_dir, work_dir, network_weights):
+def pipeline(input_dir, work_dir, network_weights, deep_check=False):
     
     input_dir = Path(input_dir)
     logger.info('Input dir: {}'.format(input_dir))
@@ -24,7 +24,11 @@ def run_segmentation(input_dir, work_dir, network_weights):
     logger.info('Found {} sub folders with DICOM data.'.format(len(dcm_folders)))
     for folder in dcm_folders:
         logger.info('Processing folder {}'.format(folder))
-        filename, _, _ = mouse_lung_data_preparation(str(folder), work_dir)
+#         if not deep_check:
+        filename, _, _ = dicom_check(str(folder), work_dir, deep_check=deep_check)
+#         else:
+#             folder_name = folder.split('/')[-1]
+#             filename = str(list(folder.glob('*'))[0])
         if filename:
             logger.info('Converting DICOM data to NRRD.')
             converter = DicomConverter(filename, clean=True, bin_path=os.environ['bin_path'])
@@ -33,6 +37,7 @@ def run_segmentation(input_dir, work_dir, network_weights):
                         '(or to remove background in case of the original CT has only one mouse already).')
             cropping = ImageCropping(converted_data)
             to_segment = cropping.crop_wo_mask()
+            to_segment = [converted_data]
             logger.info('Found {} mice in the NRRD file.'.format(len(to_segment)))
             test_set = []
             n_slices = []
@@ -47,7 +52,7 @@ def run_segmentation(input_dir, work_dir, network_weights):
             test_set = np.asarray(test_set)
             predictions = []
             logger.info('Segmentation inference started.')
-            model = mouse_lung_seg()
+            model = unet_lung()
             for i, w in enumerate(network_weights):
                 logger.info('Segmentation inference fold {}.'.format(i+1))
                 model.load_weights(w)
@@ -60,7 +65,7 @@ def run_segmentation(input_dir, work_dir, network_weights):
             logger.info('Binarizing and saving the results.')
             for i, s in enumerate(n_slices):
                 im = prediction[z:z+s, :, :, 0]
-                im = postprocessing(im)
+                im = postprocessing(im, method='human')
                 
                 im = binarization(im)
 
