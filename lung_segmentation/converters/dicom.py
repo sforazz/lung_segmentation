@@ -24,7 +24,18 @@ class DicomConverter(BaseConverter):
 
             else:
                 raise Exception('Not recognized {} method to convert from DICOM to NRRD.'.format(method))
-
+        elif convert_to == 'nifti_gz':
+            print('\nConversion from DICOM to NIFTI_GZ...')
+            ext = '.nii.gz'
+            if method == 'dcm2niix':
+                if force:
+                    cmd = ("dcm2niix -o {0} -f {1} -z y -p n -m y {2}".format(self.basedir, self.filename,
+                                                                         self.toConvert))
+                else:
+                    cmd = ("dcm2niix -o {0} -f {1} -z y -p n {2}".format(self.basedir, self.filename,
+                                                                         self.toConvert))
+            else:
+                raise Exception('Not recognized {} method to convert from DICOM to NIFTI_GZ.'.format(method))
         else:
             raise NotImplementedError('The conversion from DICOM to {} has not been implemented yet.'
                                       .format(convert_to))
