@@ -58,6 +58,11 @@ def load_data_2D(data_dir, data_type, data_list=[], array=None, mb=[], bs=None, 
         else:
             data_path = data_list[index]
             array_orig, _ = nrrd.read(data_path)
+        if normalization:
+            array_orig = normalize(array_orig, method='0-1')
+        if binarize:
+            array_orig[array_orig != 0] = 1
+
         original_size = array_orig.shape
 
         if img_size[0] < patch_width or img_size[1] < patch_height:
@@ -75,13 +80,16 @@ def load_data_2D(data_dir, data_type, data_list=[], array=None, mb=[], bs=None, 
                 except:
                     print()
             array_orig = temp
+        else:
+            delta_x = 0
+            delta_y = 0
         
         data_array = [array_orig[i[0]:i[1], j[0]:j[1]] for j in yy for i in xx]
         data_array = np.asarray(data_array, dtype=np.float16)
-        if normalization:
-            data_array = normalize(data_array, method='zscore')
-        if binarize:
-            data_array[data_array != 0] = 1
+#         if normalization:
+#             data_array = normalize(data_array, method='0-1')
+#         if binarize:
+#             data_array[data_array != 0] = 1
 
         arrays = data_array.reshape((-1, patch_width, patch_height, 1))
 
@@ -93,11 +101,11 @@ def load_data_2D(data_dir, data_type, data_list=[], array=None, mb=[], bs=None, 
             results_dict = {}
         if prediction:
             results_dict[index] = {}
-            results_dict[index]['orig_dim'] = original_size
+            results_dict[index]['image_dim'] = original_size
             results_dict[index]['indexes'] = [xx, yy]
-            results_dict[index]['im_size'] = [dx, dy]
+#             results_dict[index]['im_size'] = [dx, dy]
+            results_dict[index]['deltas'] = [delta_x, delta_y]
+            results_dict[index]['patches'] = final_array.shape[0]
 
-    if prediction:
-        return final_array, results_dict, final_array.shape[0]
-    else:
-        return final_array
+
+    return final_array, results_dict

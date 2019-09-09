@@ -7,15 +7,17 @@ import shutil
 import glob
 import pydicom
 from basecore.utils.dicom import DicomInfo
-import pickle
 import nrrd
 import numpy as np
-import cv2
-from basecore.utils.filemanip import split_filename
 import nibabel as nib
 from skimage.filters.thresholding import threshold_otsu
 from skimage.transform import resize
 import pandas as pd
+import matplotlib.pyplot as plot
+import matplotlib.cbook as cbook
+import subprocess as sp
+from scipy.spatial.distance import cdist
+from scipy.ndimage.morphology import binary_erosion
 
 
 ALLOWED_EXT = ['.xlsx', '.csv']
@@ -141,7 +143,7 @@ def batch_processing(input_data, key_col1='subjects', key_col2='masks', root='')
 
         return raw_data, masks
 
-    
+
 def dicom_check(raw_data, temp_dir, deep_check=True):
     """Function to arrange the mouse lung data into a proper structure.
     In particular, this function will look into each raw_data folder searching for
@@ -219,78 +221,12 @@ def dicom_check(raw_data, temp_dir, deep_check=True):
     return filename, folder_name, dcm_info
 
 
-def save_results(im2save, ref, save_dir=None):
-
-    basedir, basename, ext = split_filename(ref)
-    out_basename = basename.split('.')[0]+'_lung_seg'+ext
-    if save_dir is not None:
-        outname = os.path.join(save_dir, out_basename)
-    else:
-        outname = os.path.join(basedir, out_basename)
-    
-    if ext == '.nii' or ext == '.nii.gz':
-        ref = nib.load(ref)
-        im2save = nib.Nifti1Image(im2save, ref.affine)
-        nib.save(im2save, outname)
-    elif ext == '.nrrd':
-        _, ref_hd = nrrd.read(ref)
-        nrrd.write(outname, im2save, header=ref_hd)
-    else:
-        raise Exception('Extension "{}" is not recognize!'.format(ext))
-
-    return outname
-
-
-def postprocessing(im2save, method='mouse_fibrosis'):
-
-    if method == 'mouse_fibrosis':
-        image = im2save[:, 10:, 10:]
-        image = image.reshape(-1, 86, 86)
-    elif method=='human':
-        image_old = im2save[:, 10:, 10:]
-        image_old = image_old.reshape(-1, 86, 86)
-        image_old = image_old.reshape(-1, 86, 86)
-        image = np.zeros((image_old.shape[0], 512, 512))
-        for z in range(image.shape[0]):
-            image[z, :, :] = cv2.resize(image_old[z, :, :], (512, 512), interpolation=cv2.INTER_AREA)
-        
-    image = np.swapaxes(image, 0, 2)
-    image = np.swapaxes(image, 0, 1)
-
-    return image
-
-
-def preprocessing(image, label=False, method='mouse_fibrosis'):
-    
-    image = image.astype('float64')
-    if method == 'mouse_fibrosis' or method == 'micro_ct':
-        image = cv2.resize(image[:, :], (86, 86),interpolation=cv2.INTER_AREA)
-        image = image.reshape(86, 86, 1)
-        if not label:
-            image -= np.min(image)
-            image /= (np.max(image)-np.min(image))
-        temp = np.zeros([96, 96, 1])
-        temp[10:,10:,:] = image
-        image = temp
-    elif method == 'human':
-        image = cv2.resize(image[:, :], (86, 86),interpolation=cv2.INTER_AREA)
-        image = image.reshape(86, 86, 1)
-        if not label:
-            image -= np.min(image)
-            image /= (np.max(image)-np.min(image))
-        temp = np.zeros([96, 96, 1])
-        temp[10:,10:,:] = image
-        image = temp
-    
-    return image
-
-
 def binarization(image):
-    
+
     th = threshold_otsu(image)
     image[image>=th] = 1
     image[image!=1] = 0
-    
+
     return image
 
 
@@ -312,7 +248,7 @@ def normalize(image, method='zscore'):
     return res
 
 
-def resize_image(image, order=0, new_spacing=(0.5, 0.5, 0.5)):
+def resize_image(image, order=0, new_spacing=(0.1, 0.1, 0.1), save2file=True):
 
     basepath, fname, ext = split_filename(image)
     outname = os.path.join(basepath, fname+'_resampled'+ext)
@@ -328,22 +264,26 @@ def resize_image(image, order=0, new_spacing=(0.5, 0.5, 0.5)):
         space_x, space_y, space_z = hd.get_zooms()
 
     resampling_factor = (new_spacing[0]/space_x, new_spacing[1]/space_y, new_spacing[2]/space_z)
-    new_shape = (image.shape[0]//resampling_factor[0], image.shape[1]//resampling_factor[1], image.shape[2]//resampling_factor[2])
-    new_image = resize(image.astype(np.float64), new_shape, order=order, mode='edge', cval=0, anti_aliasing=False)
-    if ext == '.nrrd':
-        hd['sizes'] = np.array(new_image.shape)
-        hd['space directions'][0, 0] = new_spacing[0]
-        hd['space directions'][1, 1] = new_spacing[1]
-        hd['space directions'][2, 2] = new_spacing[2]
-        nrrd.write(outname, new_image, header=hd)
-    elif ext == '.nii.gz' or ext == '.nii':
-        im2save = nib.Nifti1Image(new_image, affine=affine)
-        nib.save(im2save, outname)
+    new_shape = (image.shape[0]//resampling_factor[0], image.shape[1]//resampling_factor[1],
+                 image.shape[2]//resampling_factor[2])
+    new_image = resize(image.astype(np.float64), new_shape, order=order, mode='edge',
+                       cval=0, anti_aliasing=False)
+    if save2file:
+        if ext == '.nrrd':
+            hd['sizes'] = np.array(new_image.shape)
+            hd['space directions'][0, 0] = new_spacing[0]
+            hd['space directions'][1, 1] = new_spacing[1]
+            hd['space directions'][2, 2] = new_spacing[2]
+            nrrd.write(outname, new_image, header=hd)
+        elif ext == '.nii.gz' or ext == '.nii':
+            im2save = nib.Nifti1Image(new_image, affine=affine)
+            nib.save(im2save, outname)
+
     return new_image, tuple(map(int, new_shape)), outname, image.shape
 
 
 def save_prediction_2D(generated_images, dict_val, binarize=False):
-    
+
     n_images = len(dict_val)
     batches = generated_images.shape[0]//n_images
     for n in range(n_images):
@@ -362,9 +302,144 @@ def save_prediction_2D(generated_images, dict_val, binarize=False):
         final_image = final_image.astype(np.float32)
         original_dim = dict_val[n]['orig_dim']
         if tuple(final_image.shape) != original_dim:
-            final_image = resize(final_image, (original_dim[0], original_dim[1]), order=3, mode='edge', cval=0,
+            final_image = resize(final_image, (original_dim[0], original_dim[1]),
+                                 order=3, mode='edge', cval=0,
                                  anti_aliasing=False)
         if binarize:
             final_image = binarization(final_image)
 
         return final_image
+
+
+def dice_calculation(gt, seg):
+
+    gt, _ = nrrd.read(gt)
+    seg, _ = nrrd.read(seg)
+    seg = np.squeeze(seg)
+    gt = gt.astype('uint16')
+    seg = seg.astype('uint16')
+    vox_gt = np.sum(gt) 
+    vox_seg = np.sum(seg)
+    try:
+        common = np.sum(gt & seg)
+    except:
+        print(gt)
+    dice = (2*common)/(vox_gt+vox_seg) 
+    return dice
+
+
+def violin_box_plot(to_plot, outname):
+
+    fig = plot.figure(1, figsize=(9, 6))
+    ax = fig.add_subplot(111)
+    parts=ax.violinplot(to_plot, showmeans=False, showmedians=False, showextrema=False)
+    for pc in parts['bodies']:
+        pc.set_facecolor('xkcd:lightblue')
+        pc.set_edgecolor('xkcd:blue')
+        pc.set_alpha(1)
+        pc.set_linewidth(2)
+
+    medianprops = dict(linestyle='-.', linewidth=2.5, color='firebrick')
+    stats = cbook.boxplot_stats(to_plot)
+    flierprops = dict(marker='o', markerfacecolor='green', markersize=12, linestyle='none')
+    ax.set_axisbelow(True)
+    plot.gca().yaxis.grid(True, ls='-', color='white')
+    ax.bxp(stats, flierprops=flierprops, medianprops=medianprops)
+    ax.set_xticks([])
+    ax.set_xticklabels([])
+    ax.tick_params(axis='y', length=0)
+    ax.set_facecolor('lightgrey')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    plot.savefig(outname)
+    plot.close()
+
+
+def cluster_correction(image, th=0.5, min_extent=10000):
+
+    out_image = image.split('.nii.gz')[0]+'_cc.nii.gz'
+    out_text = image.split('.nii.gz')[0]+'_cc.txt'
+    outname = image.split('.nii.gz')[0]+'_corrected.nii.gz'
+    cmd = 'cluster -i {0} -t {1} -o {2} --minextent={3} --olmax={4}'.format(
+        image, th, out_image, min_extent, out_text)
+    _ = sp.check_output(cmd, shell=True)
+    with open(out_text, 'r') as f:
+        res = [x.split() for x in f]
+    mat = np.asarray(res[1:]).astype('float')
+    clusters = list(set(mat[mat[:, 1] > 0.95][:, 0]))
+    add_cmd = None
+    for i, cl in enumerate(clusters):
+        if len(clusters) > 2:
+            print('Found {0} clusters for image {1}, please check because the'
+                  ' usual number of clusters should be not greater than 2.'.format(len(clusters), image))
+        out_cl = image.split('.nii.gz')[0]+'_cc_{}.nii.gz'.format(cl)
+        if len(clusters) > 1:
+            cmd = 'fslmaths {0} -uthr {1} -thr {1} -bin {2}'.format(out_image, cl, out_cl)
+        else:
+            cmd = 'fslmaths {0} -uthr {1} -thr {1} -bin {2}'.format(out_image, cl, outname)
+        sp.check_output(cmd, shell=True)
+        if len(clusters) > 1:
+            if i == 0:
+                add_cmd = 'fslmaths {} -add'.format(out_cl)
+            elif i == len(clusters)-1:
+                add_cmd = add_cmd + ' {0} {1}'.format(out_cl, outname)
+            else:
+                add_cmd = add_cmd + ' {0} -add'.format(out_cl)
+    if add_cmd is not None:
+        sp.check_output(add_cmd, shell=True)
+
+    return outname
+
+
+def eucl_max(image_1, image_2, percentile=95, new_spacing=(3, 3, 3)):
+    "Function to calculate the Hausdorff distance between 2 images"
+    image_1_rs, _, _, _ = resize_image(image_1, order=0, new_spacing=new_spacing, save2file=False)
+    image_2_rs, _, _, _ = resize_image(image_2, order=0, new_spacing=new_spacing, save2file=False)
+
+    image_1_rs[image_1_rs>0] = 1.0
+    image_2_rs[image_2_rs>0] = 1.0
+
+    image_1_rs = np.logical_not(
+        np.logical_or(image_1_rs==0, np.isnan(image_1_rs)))
+    image_2_rs = np.logical_not(
+        np.logical_or(image_2_rs==0, np.isnan(image_2_rs)))
+
+    if image_1_rs.max() == 0 or image_2_rs.max() == 0:
+        return np.NaN
+
+    border1 = _find_border(image_1_rs)
+    border2 = _find_border(image_2_rs)
+
+    _, image_1_hd = nrrd.read(image_1)
+    affine_1 = np.eye(4)
+    affine_1[:3, :3] = image_1_hd['space directions']
+    _, image_2_hd = nrrd.read(image_2)
+    affine_2 = np.eye(4)
+    affine_2[:3, :3] = image_2_hd['space directions']
+
+    set1_coordinates = _get_coordinates(border1, affine_1)
+    set2_coordinates = _get_coordinates(border2, affine_2)
+
+    distances = cdist(set1_coordinates.T, set2_coordinates.T)
+    mins = np.concatenate((np.amin(distances, axis=0),
+                           np.amin(distances, axis=1)))
+
+    return np.percentile(mins, percentile)
+
+
+def _find_border(data):
+
+        eroded = binary_erosion(data)
+        border = np.logical_and(data, np.logical_not(eroded))
+        return border
+
+
+def _get_coordinates(data, affine):
+    if len(data.shape) == 4:
+        data = data[:, :, :, 0]
+    indices = np.vstack(np.nonzero(data))
+    indices = np.vstack((indices, np.ones(indices.shape[1])))
+    coordinates = np.dot(affine, indices)
+    return coordinates[:3, :]
