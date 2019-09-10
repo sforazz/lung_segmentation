@@ -5,8 +5,9 @@ from datetime import datetime
 import logging
 import shutil
 import glob
+from operator import itemgetter
+import collections
 import pydicom
-from basecore.utils.dicom import DicomInfo
 import nrrd
 import numpy as np
 import nibabel as nib
@@ -22,6 +23,58 @@ from scipy.ndimage.morphology import binary_erosion
 
 ALLOWED_EXT = ['.xlsx', '.csv']
 ILLEGAL_CHARACTERS = ['/', '(', ')', '[', ']', '{', '}', ' ', '-']
+
+
+class DicomInfo(object):
+    
+    def __init__(self, dicoms):
+
+        if type(dicoms) == list:
+            self.dcms = dicoms
+        elif os.path.isdir(dicoms):
+            dcms = list(dicoms.glob('*.dcm'))
+            if not dcms:
+                dcms = list(dicoms.glob('*.IMA'))
+            if not dcms:
+                raise Exception('No DICOM files found in {}'.format(dicoms))
+            else:
+                self.dcms = dcms
+        else:
+            self.dcms = [dicoms]
+
+    def get_tag(self, tag):
+        
+        tags = {}
+
+        if type(tag) is not list:
+            tag = [tag]
+        for t in tag:
+            values = []
+            for dcm in self.dcms:
+                header = pydicom.read_file(str(dcm))
+                try:
+                    val = header.data_element(t).value
+                    if isinstance(val, collections.Iterable) and type(val) is not str:
+                        val = tuple(val)
+                    else:
+                        val = str(val)
+                    values.append(val)
+                except (AttributeError, KeyError):
+                    print ('{} seems to do not have the requested DICOM field ({})'.format(dcm, t))
+
+            tags[t] = list(set(values))
+        
+        return self.dcms, tags
+
+    def check_uniqueness(self, InstanceNums, SeriesNums):
+        
+        toRemove = []
+        if (len(InstanceNums) == 2*(len(set(InstanceNums)))) and len(set(SeriesNums)) == 1:
+            sortedInstanceNums = sorted(zip(self.dcms, InstanceNums), key=itemgetter(1))
+            uniqueInstanceNums = [x[0] for x in sortedInstanceNums[:][0:-1:2]]
+            toRemove = toRemove+uniqueInstanceNums
+        
+        return toRemove
 
 
 def split_filename(fname):
