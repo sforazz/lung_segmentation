@@ -1,4 +1,4 @@
-from basecore.utils.filemanip import split_filename
+from lung_segmentation.utils import split_filename
 
 class BaseConverter(object):
     
