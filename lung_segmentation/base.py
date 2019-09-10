@@ -35,6 +35,7 @@ class LungSegmentationBase():
         self.x_test = []
         self.y_train = []
         self.y_test = []
+        self.image_tensor = None
 
         if tl:
             LOGGER.info('Trasfer learning training enabled. The encoder part of '
@@ -106,7 +107,7 @@ class LungSegmentationBase():
                     for mask in os.listdir(self.mask_paths[i]):
                         if os.path.isfile(os.path.join(self.mask_paths[i], mask)):
                             prefix = 'Raw_data_for_{}'.format('_'.join(mask.split('.')[:-1]))
-                            cropping = ImageCropping(converted_data, 
+                            cropping = ImageCropping(converted_data,
                                                      os.path.join(self.mask_paths[i], mask),
                                                      prefix=prefix)
                             image, mask = cropping.crop_with_mask()
@@ -146,9 +147,10 @@ class LungSegmentationBase():
     def create_tensors(self, patch_size=(96, 96), save2npy=True):
         "Function to create the 2D tensor from the 3D images"
         image_tensor = []
-        self.patch_size = patch_size
+        LOGGER.info('Creating the patches to fed then into the network.')
+        LOGGER.info('Chosen path size is: {0}x{1}.'.format(patch_size[0], patch_size[1]))
         for i, image in enumerate(self.preprocessed_images):
-            p = 0
+            patch = 0
             im_base, im_name, ext = split_filename(image)
             im_path = os.path.join(im_base, im_name)
             if not glob.glob(im_path+'*.npy'):
@@ -159,30 +161,30 @@ class LungSegmentationBase():
                     mask_base, mask_name, _ = split_filename(mask)
                     mask_path = os.path.join(mask_base, mask_name)
                     mask, _ = nrrd.read(mask)
-                for z in range(image.shape[2]):
+                for n_slice in range(image.shape[2]):
                     im_array, info_dict = load_data_2D(
-                        '', '', array=image[:, :, z], img_size=im_size,
+                        '', '', array=image[:, :, n_slice], img_size=im_size,
                         patch_size=patch_size, binarize=False, normalization=True,
                         prediction=self.testing)
                     if self.preprocessed_masks and not self.testing:
                         mask_array, _ = load_data_2D(
-                            '', '', array=mask[:, :, z], img_size=im_size,
+                            '', '', array=mask[:, :, n_slice], img_size=im_size,
                             patch_size=patch_size, binarize=True, normalization=False)
                     if save2npy:
                         for j in range(im_array.shape[0]):
                             np.save(im_path+'_patch{}.npy'
-                                    .format(str(p).zfill(5)), im_array[j, :])
+                                    .format(str(patch).zfill(5)), im_array[j, :])
                             if self.preprocessed_masks:
                                 np.save(mask_path+'_patch{}.npy'
-                                        .format(str(p).zfill(5)), mask_array[j, :])
-                            p = p+1
+                                        .format(str(patch).zfill(5)), mask_array[j, :])
+                            patch = patch+1
                     else:
                         for j in range(im_array.shape[0]):
                             image_tensor.append(im_array[j, :])
                 if not save2npy:
                     if info_dict is not None:
                         im_name = im_path+ext
-                        self.image_info[im_name]['slices'] = z+1
+                        self.image_info[im_name]['slices'] = n_slice+1
                         for k in info_dict[0].keys():
                             self.image_info[im_name][k] = info_dict[0][k]
         if image_tensor:

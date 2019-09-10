@@ -1,21 +1,26 @@
-from lung_segmentation.inference import LungSegmentationInference
+"Simple script to run segmentation inference"
 import os
+from lung_segmentation.inference import LungSegmentationInference
 from lung_segmentation.utils import create_log
 
 
-input_dir = '/home/fsforazz/Desktop/PhD_project/fibrosis_project/mouse_list_all.xlsx'
-work_dir = '/mnt/sdb/test_ls/'
-parent_dir = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
+INPUT_DIR = '/home/fsforazz/Desktop/PhD_project/fibrosis_project/training_data_MA.xlsx'
+WORK_DIR = '/mnt/sdb/tl_mouse_MA_all/'
+PARENT_DIR = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
+LOG_DIR = os.path.join(WORK_DIR, 'logs')
 
-os.environ['bin_path'] = os.path.join(parent_dir, 'bin/')
-log_dir = os.path.join(work_dir, 'logs')
-if not os.path.isdir(log_dir):
-    os.makedirs(log_dir)
+os.environ['bin_path'] = os.path.join(PARENT_DIR, 'bin/')
 
-logger = create_log(log_dir)
+if not os.path.isdir(LOG_DIR):
+    os.makedirs(LOG_DIR)
+LOGGER = create_log(LOG_DIR)
 
-ls = LungSegmentationInference(input_dir, work_dir, deep_check=True)
-ls.get_data()
-ls.preprocessing()
-ls.create_tensors()
-ls.run_inference(weights='')
+inference = LungSegmentationInference(INPUT_DIR, WORK_DIR, deep_check=False)
+inference.get_data()
+inference.preprocessing(new_spacing=(0.2, 0.2, 0.2))
+inference.create_tensors()
+inference.run_inference(weights=['/mnt/sdb/tl_mouse_MA/training/double_feat_per_layer_BCE_fold_0.h5'])
+inference.save_inference()
+inference.run_evaluation()
+
+print('Done!')
