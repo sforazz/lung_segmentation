@@ -1,7 +1,7 @@
 import os
 import nrrd
 import numpy as np
-from basecore.utils.filemanip import split_filename
+from lung_segmentation.utils import split_filename
 import pickle
 import nibabel as nib
 
