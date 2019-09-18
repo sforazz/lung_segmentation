@@ -18,13 +18,16 @@ LOGGER = logging.getLogger('lungs_segmentation')
 
 class LungSegmentationTraining(LungSegmentationBase):
     "Class to run the whole training process"
-    def get_data(self, root_path='', testing=True):
+    def get_data(self, root_path='', testing=True, preproc_only=False):
         "Function to get the data for training"
         self.precomputed_masks = []
         self.precomputed_images = []
         self.testing = False
         testing_dir = os.path.join(self.work_dir, 'testing')
-        self.work_dir = os.path.join(self.work_dir, 'training')
+        if not preproc_only:
+            self.work_dir = os.path.join(self.work_dir, 'training')
+        else:
+            self.work_dir = os.path.join(self.work_dir, 'pre-processing')
         if not os.path.isdir(self.work_dir):
             os.mkdir(self.work_dir)
 
@@ -52,7 +55,8 @@ class LungSegmentationTraining(LungSegmentationBase):
                     for s in test_set_gt:
                         f.write(s+'\n')
 
-        LOGGER.info('{} folders will be pre-processed and use to train the network.'
+        LOGGER.info('{} folders will be pre-processed and use to train the '
+                    'network (if network training was selected).'
                     .format(len(self.dcm_folders)))
 
     def create_tensors(self, patch_size=(96, 96), save2npy=True):

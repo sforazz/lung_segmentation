@@ -14,7 +14,8 @@ from lung_segmentation.utils import split_filename
 
 
 LOGGER = logging.getLogger('lungs_segmentation')
-MOUSE_NAMES = ['01', '02', '03', '04', '05', '06']
+MOUSE_NAMES = ['mouse_01', 'mouse_02', 'mouse_03',
+               'mouse_04', 'mouse_05', 'mouse_06']
 
 
 class ImageCropping():
@@ -176,7 +177,7 @@ class ImageCropping():
                            'Please check the results.')
             xx.remove(xx[-1])
         if accurate_naming:
-            mouse_names = MOUSE_NAMES.copy()
+            image_names = MOUSE_NAMES.copy()
             first_edge = xx [0]
             last_edge = xx[-1]
             names2remove = []
@@ -189,7 +190,7 @@ class ImageCropping():
                                 'The mouse naming will be updated accordingly.'
                                 .format(first_edge, missing_left))
                     for m in range(missing_left):
-                        names2remove.append(mouse_names[m])
+                        names2remove.append(image_names[m])
             if last_edge < min_last_edge:
                 missing_right = int((min_last_edge-last_edge)/(min_size_x*2))
                 if missing_right > 0:
@@ -199,11 +200,11 @@ class ImageCropping():
                                 'The mouse naming will be updated accordingly.'
                                 .format(last_edge, missing_right))
                     for m in range(missing_right):
-                        names2remove.append(mouse_names[-1-m])
+                        names2remove.append(image_names[-1-m])
             for ind in names2remove:
-                mouse_names.remove(ind)
+                image_names.remove(ind)
             for i, ind in enumerate(range(1, len(xx)-1, 2)):
-                mouse_index = mouse_names[i]
+                mouse_index = image_names[i]
                 distance = xx[ind+1] - xx[ind]
                 hole_dimension = int(np.round(distance/(min_size_x*1.5)))
                 if hole_dimension >= 2:
@@ -213,14 +214,14 @@ class ImageCropping():
                                 'mouse size. This could mean that {3} mice are missing'
                                 ' in this batch. They will'
                                 ' be ignored and the naming will be updated accordingly.'
-                                .format(mouse_index, mouse_names[i+1], hole_dimension,
+                                .format(mouse_index, image_names[i+1], hole_dimension,
                                         hole_dimension-1, distance))
                     for m in range(hole_dimension-1):
-                        names2remove.append(mouse_names[i+m+1])
+                        names2remove.append(image_names[i+m+1])
                     for ind in names2remove:
-                        mouse_names.remove(ind)
+                        image_names.remove(ind)
         else:
-            mouse_names = ['0{}'.format(x+1) for x in range(int(len(xx)//2))]
+            image_names = ['subject_0{}'.format(x+1) for x in range(int(len(xx)//2))]
 
         for n_mice, i in enumerate(range(0, len(xx), 2)):
             coordinates = {}
@@ -232,12 +233,12 @@ class ImageCropping():
             coordinates['y'] = [indY-min_size_y, indY]
             coordinates['z'] = [mean_Z-int(min_size_z/2), mean_Z+int(min_size_z/2)]
 
-            with open(self.imageOutname+'_mouse_{}.p'.format(mouse_names[n_mice]), 'wb') as fp:
+            with open(self.imageOutname+'_{}.p'.format(image_names[n_mice]), 'wb') as fp:
                 pickle.dump(coordinates, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-            nrrd.write(self.imageOutname+'_mouse_{}.nrrd'.format(mouse_names[n_mice]),
+            nrrd.write(self.imageOutname+'_{}.nrrd'.format(image_names[n_mice]),
                        croppedImage, header=imageHD)
-            out.append(self.imageOutname+'_mouse_{}.nrrd'.format(mouse_names[n_mice]))
+            out.append(self.imageOutname+'_{}.nrrd'.format(image_names[n_mice]))
 
         LOGGER.info('Cropping done!')
         return out

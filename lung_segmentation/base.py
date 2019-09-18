@@ -51,7 +51,7 @@ class LungSegmentationBase():
         raise NotImplementedError('This method has not been implemented yet.')
 
     def preprocessing(self, new_spacing=(0.35, 0.35, 0.35)):
-        "Function to pre-process the mouse data"
+        "Function to pre-process the data"
 
         if os.path.isfile(os.path.join(self.work_dir, 'processed_DICOM.txt')):
             with open(os.path.join(self.work_dir, 'processed_DICOM.txt'), 'r') as f:
@@ -68,7 +68,7 @@ class LungSegmentationBase():
                 if not self.testing:
                     masks = [x for x in sorted(glob.glob(os.path.join(sub, '*resampled.nrrd')))
                              if 'Raw_data' not in x]
-                else:
+                elif self.testing or new_spacing is None:
                     masks = [x for x in sorted(glob.glob(os.path.join(sub, '*cropped.nrrd')))
                              if 'Raw_data' not in x]
                 self.precomputed_masks = self.precomputed_masks + masks
@@ -100,7 +100,7 @@ class LungSegmentationBase():
                 converted_data = converter.convert(convert_to='nrrd',
                                                    method='mitk')
                 if self.mask_paths is not None:
-                    LOGGER.info('Cropping the mouse images based on the '
+                    LOGGER.info('Cropping the CT images based on the '
                                 'already segmented lung mask.')
                     images = []
                     masks = []
@@ -115,23 +115,31 @@ class LungSegmentationBase():
                                 images.append(image)
                                 masks.append(mask)
                 else:
-                    LOGGER.info('Automatically cropping the nrrd file to have'
-                                ' one mouse per image (or to remove background in case '
-                                'of the original CT has only one mouse already).')
+                    LOGGER.info('Automatically cropping the CT image to have'
+                                ' one subject per image (or to remove background in case '
+                                'of the original CT has only one subject already).')
                     prefix = 'Raw_data'
                     cropping = ImageCropping(converted_data, prefix=prefix)
                     images = cropping.crop_wo_mask()
                     masks = []
-                LOGGER.info('Found {} mice in the NRRD file.'.format(len(images)))
+                LOGGER.info('Found {} subjects in the NRRD file.'.format(len(images)))
                 for j, image in enumerate(images):
-                    LOGGER.info('The cropped images will be now resampled to have {} mm '
-                                'isotropic resolution.'.format(new_spacing[0]))
-                    _, _, img_path, orig_size = resize_image(image, new_spacing=new_spacing)
+                    if new_spacing is not None:
+                        LOGGER.info('The cropped images will be now resampled to have '
+                                    '{0}x{1}x{2} mm resolution.'
+                                    .format(new_spacing[0], new_spacing[1], new_spacing[2]))
+                        _, _, img_path, orig_size = resize_image(image, new_spacing=new_spacing)
+                    else:
+                        img_path = image
+                        orig_size = None
                     self.preprocessed_images.append(img_path)
                     self.image_info[img_path] = {}
                     self.image_info[img_path]['orig_size'] = orig_size
                     if masks and not self.testing:
-                        _, _, mask_path, _= resize_image(masks[j], new_spacing=new_spacing)
+                        if new_spacing is not None:
+                            _, _, mask_path, _= resize_image(masks[j], new_spacing=new_spacing)
+                        else:
+                            mask_path = masks[j]
                         self.preprocessed_masks.append(mask_path)
                     elif masks and self.testing:
                         self.preprocessed_masks.append(masks[j])
