@@ -217,7 +217,7 @@ def dicom_check(raw_data, temp_dir, deep_check=True):
     dcm_info = {}
     processed = False
     if not dicoms:
-        dicoms = sorted(glob.glob(raw_data+'/*.dcm'))
+        dicoms = sorted(glob.glob(raw_data+'/*'))
         if not dicoms:
             raise Exception('No DICOM files found in {}! Please check.'.format(raw_data))
         else:
@@ -264,7 +264,7 @@ def dicom_check(raw_data, temp_dir, deep_check=True):
                 shutil.copy2(x, folder_name)
             except:
                 continue
-        filename = sorted(glob.glob(folder_name+'/*{}'.format(ext)))[0]
+        filename = sorted(glob.glob(folder_name+'/*'.format(ext)))[0]
 
     else:
         print('No suitable CT data with name containing "H50s" were found in {}'.format(raw_data))

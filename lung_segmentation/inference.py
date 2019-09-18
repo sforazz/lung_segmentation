@@ -78,12 +78,12 @@ class LungSegmentationInference(LungSegmentationBase):
             im = prediction[z0:z0+(slices*patches), :, :, 0]
             final_prediction = self.inference_reshaping(
                 im, patches, slices, resampled_image_dim, indexes, deltas,
-                original_image_dim, binarize=False)
+                original_image_dim, binarize=True)
             outname = image.split('_resampled')[0]+'_lung_segmented.nrrd'
             reference = image.split('_resampled')[0]+'.nrrd'
             _, hd = nrrd.read(reference)
             nrrd.write(outname, final_prediction, header=hd)
-            outname = cluster_correction(outname, 0.2, 10000)
+#             outname = cluster_correction(outname, 0.2, 10000)
             self.predicted_images.append(outname)
             z0 = z0+(slices*patches)
 

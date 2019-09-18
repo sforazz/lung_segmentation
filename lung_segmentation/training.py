@@ -106,6 +106,30 @@ class LungSegmentationTraining(LungSegmentationBase):
 
         return hist
 
+    @staticmethod
+    def run_batch(model, batch_files, batch_masks, s, batch_size):
+
+        indexes = sample(range(len(batch_files)), batch_size)
+        files = [batch_files[x] for x in indexes]
+        masks = [batch_masks[x] for x in indexes]
+        images = np.asarray([np.load(x) for x in files]).reshape(-1, 96, 96, 1)
+        labels = np.asarray([np.load(x) for x in masks]).reshape(-1, 96, 96, 1)
+        hist = model.train_on_batch(images, labels)
+
+        return hist
+
+    @staticmethod
+    def run_batch_val(model, batch_files, batch_masks, s, batch_size):
+
+        indexes = sample(range(len(batch_files)), batch_size)
+        files = [batch_files[x] for x in indexes]
+        masks = [batch_masks[x] for x in indexes]
+        images = np.asarray([np.load(x) for x in files]).reshape(-1, 96, 96, 1)
+        labels = np.asarray([np.load(x) for x in masks]).reshape(-1, 96, 96, 1)
+        hist = model.test_on_batch(images, labels)
+
+        return hist
+
     def run_training(self, n_epochs=100, training_bs=41, validation_bs=40,
                      lr_0=2e-4, training_steps=None, validation_steps=None, fold=0,
                      weight_name=None):
@@ -157,7 +181,7 @@ class LungSegmentationTraining(LungSegmentationBase):
             LOGGER.info('Validation loss: {0}. Dice score: {1}'
                         .format(np.mean(validation_loss), np.mean(validation_jd)))
             weight_name = os.path.join(self.work_dir,
-                                       'double_feat_per_layer_BCE_fold_{0}_plus_MA.h5'.format(fold))
+                                       'double_feat_per_layer_BCE_fold_{0}_plus_MA_plus_human2.h5'.format(fold))
 
             if e == 0:
                 LOGGER.info('Saving network weights...')
