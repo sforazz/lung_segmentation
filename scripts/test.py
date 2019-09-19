@@ -16,7 +16,7 @@ if __name__ == "__main__":
     PARSER.add_argument('--input_file', '-i', type=str,
                         help=('Existing Excel file with a list of all the folders containing DICOMS'
                               ' that will be used for training the network.'))
-    PARSER.add_argument('--root_path', '-r', type=str,
+    PARSER.add_argument('--root_path', '-r', type=str, default='',
                         help=('Path that has to be appended to all the folders in the input_file.'))
     PARSER.add_argument('--work_dir', '-w', type=str,
                         help=('Directory where to store the results.'))
