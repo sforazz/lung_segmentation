@@ -7,7 +7,7 @@ import numpy as np
 from skimage.transform import resize
 from lung_segmentation.utils import (binarization, dice_calculation,
                                      violin_box_plot, cluster_correction,
-    eucl_max)
+                                     eucl_max, batch_processing)
 from lung_segmentation.models import unet_lung
 from lung_segmentation.base import LungSegmentationBase
 
@@ -17,22 +17,23 @@ LOGGER = logging.getLogger('lungs_segmentation')
 
 class LungSegmentationInference(LungSegmentationBase):
     "Class to run the lung segmentation inference and evaluation."
-    def get_data(self):
+    def get_data(self, root_path=''):
         "Function to get the data for the prediction"
         self.testing = True
         self.predicted_images = []
-        if (os.path.isdir(os.path.join(self.work_dir, 'testing'))
-                and os.path.isfile(os.path.join(self.work_dir, 'testing', 'test_subjects.txt'))):
-            with open(os.path.join(self.work_dir, 'testing', 'test_subjects.txt'), 'r') as f:
-                self.dcm_folders = [x.strip() for x in f]
-        if (os.path.isdir(os.path.join(self.work_dir, 'testing'))
-                and os.path.isfile(os.path.join(self.work_dir, 'testing',
+        if (os.path.isdir(os.path.join(self.work_dir, 'inference'))
+                and os.path.isfile(os.path.join(self.work_dir, 'inference', 'test_subjects.txt'))
+                and os.path.isfile(os.path.join(self.work_dir, 'inference',
                                                 'test_subjects_gt_masks.txt'))):
-            with open(os.path.join(self.work_dir, 'testing',
+            with open(os.path.join(self.work_dir, 'inference', 'test_subjects.txt'), 'r') as f:
+                self.dcm_folders = [x.strip() for x in f]
+            with open(os.path.join(self.work_dir, 'inference',
                                    'test_subjects_gt_masks.txt'), 'r') as f:
                 self.mask_paths = [x.strip() for x in f]
+        elif os.path.isfile(self.input_path):
+            self.dcm_folders, _ = batch_processing(self.input_path, root=root_path)
         else:
-            LOGGER.info('No folder called "testing" in the working directory.'
+            LOGGER.info('No folder called "inference" in the working directory.'
                         ' The pipeline will look for DICOM file to use for '
                         'inference in all the sub-folders within the '
                         'working directory.')
@@ -44,7 +45,7 @@ class LungSegmentationInference(LungSegmentationBase):
             LOGGER.info('Found {0} sub-folders in {1}. They will be used to run the inference.'
                         .format(len(self.dcm_folders), str(input_dir)))
 
-        self.work_dir = os.path.join(str(self.work_dir), 'testing')
+        self.work_dir = os.path.join(str(self.work_dir), 'inference')
 
     def create_tensors(self, patch_size=(96, 96), save2npy=False):
         "Function to create the tensors for the prediction"
@@ -64,7 +65,7 @@ class LungSegmentationInference(LungSegmentationBase):
         predictions = np.asarray(predictions, dtype=np.float32)
         self.prediction = np.mean(predictions, axis=0)
 
-    def save_inference(self):
+    def save_inference(self, min_extent=10000):
         "Function to save the segmented masks"
         prediction = self.prediction
         z0 = 0
@@ -78,12 +79,12 @@ class LungSegmentationInference(LungSegmentationBase):
             im = prediction[z0:z0+(slices*patches), :, :, 0]
             final_prediction = self.inference_reshaping(
                 im, patches, slices, resampled_image_dim, indexes, deltas,
-                original_image_dim, binarize=True)
+                original_image_dim, binarize=False)
             outname = image.split('_resampled')[0]+'_lung_segmented.nrrd'
             reference = image.split('_resampled')[0]+'.nrrd'
             _, hd = nrrd.read(reference)
             nrrd.write(outname, final_prediction, header=hd)
-#             outname = cluster_correction(outname, 0.2, 10000)
+            outname = cluster_correction(outname, 0.2, min_extent)
             self.predicted_images.append(outname)
             z0 = z0+(slices*patches)
 

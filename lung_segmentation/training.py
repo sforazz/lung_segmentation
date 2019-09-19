@@ -23,7 +23,7 @@ class LungSegmentationTraining(LungSegmentationBase):
         self.precomputed_masks = []
         self.precomputed_images = []
         self.testing = False
-        testing_dir = os.path.join(self.work_dir, 'testing')
+        testing_dir = os.path.join(self.work_dir, 'inference')
         if not preproc_only:
             self.work_dir = os.path.join(self.work_dir, 'training')
         else:

@@ -19,6 +19,7 @@ import matplotlib.cbook as cbook
 import subprocess as sp
 from scipy.spatial.distance import cdist
 from scipy.ndimage.morphology import binary_erosion
+import cv2
 
 
 ALLOWED_EXT = ['.xlsx', '.csv']
@@ -412,16 +413,26 @@ def violin_box_plot(to_plot, outname):
 
 def cluster_correction(image, th=0.5, min_extent=10000):
 
-    out_image = image.split('.nii.gz')[0]+'_cc.nii.gz'
-    out_text = image.split('.nii.gz')[0]+'_cc.txt'
-    outname = image.split('.nii.gz')[0]+'_corrected.nii.gz'
+    out_nii = image.split('.nrrd')[0]+'.nii.gz'
+    out_image = out_nii.split('.nii.gz')[0]+'_cc.nii.gz'
+    out_text = out_nii.split('.nii.gz')[0]+'_cc.txt'
+    outname = out_nii.split('.nii.gz')[0]+'_corrected.nii.gz'
+    outname_nrrd = out_nii.split('.nii.gz')[0]+'_corrected.nrrd'
+
+    im_nrrd, header_nrrd = nrrd.read(image)
+    nii2save = nib.Nifti1Image(im_nrrd, affine=np.eye(4))
+    nib.save(nii2save, out_nii)
+
     cmd = 'cluster -i {0} -t {1} -o {2} --minextent={3} --olmax={4}'.format(
-        image, th, out_image, min_extent, out_text)
+        out_nii, th, out_image, min_extent, out_text)
     _ = sp.check_output(cmd, shell=True)
     with open(out_text, 'r') as f:
         res = [x.split() for x in f]
     mat = np.asarray(res[1:]).astype('float')
-    clusters = list(set(mat[mat[:, 1] > 0.95][:, 0]))
+    try:
+        clusters = list(set(mat[mat[:, 1] > 0.95][:, 0]))
+    except:
+        print()
     add_cmd = None
     for i, cl in enumerate(clusters):
         if len(clusters) > 2:
@@ -443,7 +454,10 @@ def cluster_correction(image, th=0.5, min_extent=10000):
     if add_cmd is not None:
         sp.check_output(add_cmd, shell=True)
 
-    return outname
+    nii_im = nib.load(outname).get_data()
+    nrrd.write(outname_nrrd, nii_im, header=header_nrrd)
+
+    return outname_nrrd
 
 
 def eucl_max(image_1, image_2, percentile=95, new_spacing=(3, 3, 3)):

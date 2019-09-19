@@ -26,7 +26,7 @@ if __name__ == "__main__":
                               ' dataset, so you might want to turn it off. If you turn it off, '
                               'please make sure that the DICOM data are correct. '
                               'Default is False.'))
-    PARSER.add_argument('--spacing', '-s', nargs='+', type=int, default=None,
+    PARSER.add_argument('--spacing', '-s', nargs='+', type=float, default=None,
                         help=('New spacing for the resampled images after pre-processing. '
                               'Need to be a list of 3 values. Default is None, so no '
                               'resampling'))
