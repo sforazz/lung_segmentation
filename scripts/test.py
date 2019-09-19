@@ -34,7 +34,7 @@ if __name__ == "__main__":
                         help=('Path to the folder with additional dataset that have to be '
                               'for training. They have to be already pre-processed '
                               'using the pre-processing class.'))
-    PARSER.add_argument('--epochs', '-w', type=int,
+    PARSER.add_argument('--epochs', '-e', type=int,
                         help=('Number of epochs. Default is 100.'))
     PARSER.add_argument('--pre-processing-only', '-pp', action='store_true',
                         help=('If True, only the pre-processing will be performed. Useful '
@@ -56,9 +56,9 @@ if __name__ == "__main__":
         os.mkdir(LOG_DIR)
 
     LOGGER = create_log(LOG_DIR)
-
+    print(ARGS.spacing)
     if ARGS.spacing is not None:
-        NEW_SPACING = (ARGS.spacing[0], ARGS.spacing[1], ARGS.spacing[3])
+        NEW_SPACING = (ARGS.spacing[0], ARGS.spacing[1], ARGS.spacing[2])
     else:
         NEW_SPACING = None
 

@@ -39,7 +39,7 @@ class LungSegmentationBase():
 
         if tl:
             LOGGER.info('Trasfer learning training enabled. The encoder part of '
-                        'the model will be frozen and only the decoded will be '
+                        'the model will be frozen and only the decoder will be '
                         'trained.')
         self.transfer_learning = tl
 

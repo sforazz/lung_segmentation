@@ -106,10 +106,10 @@ class ImageCropping():
         Function to crop CT images automatically. It will look for edges
         in the middle slice and will crop the image accordingly.
         If accurate_naming is enabled, the numbering of the cropped
-        images will account for missing subjects within the image. 
+        images will account for missing subjects within the image.
         This will enable you to keep track of mice in longitudinal studies.
-        This is for mouse experiment where more than one mouse is acquired 
-        in one image. If you are not cropping pre-clinical images or you 
+        This is for mouse experiment where more than one mouse is acquired
+        in one image. If you are not cropping pre-clinical images or you
         are not interested in keep track of the mice across time-points,
         set this to False.
         """
