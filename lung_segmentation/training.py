@@ -11,7 +11,9 @@ from lung_segmentation.models import unet_lung
 from lung_segmentation.utils import batch_processing
 from lung_segmentation.base import LungSegmentationBase
 from lung_segmentation.loss import dice_coefficient
-
+from lung_segmentation.dataloader import LungSegmentationDataLoader2D
+from batchgenerators.dataloading import MultiThreadedAugmenter
+from batchgenerators.examples.brats2017.brats2017_dataloader_3D import get_train_transform
 
 LOGGER = logging.getLogger('lungs_segmentation')
 
@@ -23,7 +25,7 @@ class LungSegmentationTraining(LungSegmentationBase):
         self.precomputed_masks = []
         self.precomputed_images = []
         self.testing = False
-        testing_dir = os.path.join(self.work_dir, 'inference')
+        testing_dir = os.path.join(self.work_dir, 'testing')
         if not preproc_only:
             self.work_dir = os.path.join(self.work_dir, 'training')
         else:
@@ -65,11 +67,12 @@ class LungSegmentationTraining(LungSegmentationBase):
 
     def data_split(self, additional_dataset=[]):
         "Function to split the whole dataset into training and validation"
-        data = []
-        masks = []
+
         w_dirs = [self.work_dir] + additional_dataset
         LOGGER.info('Splitting the dataset into training (70%) and validation (30%).')
         for directory in w_dirs:
+            data = []
+            masks = []
             for root, _, files in os.walk(directory):
                 for name in files:
                     if name.endswith('.npy') and 'Raw_data' in name and 'patch' in name:
@@ -136,20 +139,45 @@ class LungSegmentationTraining(LungSegmentationBase):
 
     def run_training(self, n_epochs=100, training_bs=41, validation_bs=40,
                      lr_0=2e-4, training_steps=None, validation_steps=None, fold=0,
-                     weight_name=None):
+                     weight_name=None, keep_training=True, use_data_augmentation=True):
         "Function to run the full training"
         if training_steps is None:
             training_steps = math.ceil(len(self.x_train)/training_bs)
             validation_steps = math.ceil(len(self.x_test)/validation_bs)
 
+        if keep_training:
+            with open(os.path.join(self.work_dir, 'Training_loss_fold_{}.txt'
+                                   .format(fold)), 'r') as f:
+                all_loss_training = [float(x) for x in f]
+            with open(os.path.join(self.work_dir, 'Validation_loss_fold_{}.txt'
+                                   .format(fold)), 'r') as f:
+                all_loss_val = [float(x) for x in f]
+            current_epoch = len(all_loss_training)
+        else:
+            all_loss_training = []
+            all_loss_val = []
+            current_epoch = 0
         model = unet_lung()
+        if use_data_augmentation:
+            dataloader_train = LungSegmentationDataLoader2D(self.y_train, training_bs, (96, 96), 1)
+            dataloader_validation = LungSegmentationDataLoader2D(self.y_test, training_bs, (96, 96), 1)
 
-        all_loss_training = []
-        all_loss_val = []
+            tr_transforms = get_train_transform((96, 96))
+            tr_gen = MultiThreadedAugmenter(dataloader_train, tr_transforms, num_processes=4,
+                                            num_cached_per_queue=3,
+                                            seeds=None, pin_memory=False)
+
+            val_gen = MultiThreadedAugmenter(dataloader_validation, None,
+                                             num_processes=2, num_cached_per_queue=1,
+                                             seeds=None,
+                                             pin_memory=False)
+            tr_gen.restart()
+            val_gen.restart()
+
         patience = 0
-        for e in range(n_epochs):
+        for e in range(current_epoch, n_epochs):
             LOGGER.info('Epoch {}'.format(str(e+1)))
-            if e > 0 or self.transfer_learning:
+            if e > 0 or self.transfer_learning or keep_training:
                 model = unet_lung(pretrained_weights=weight_name)
             if self.transfer_learning:
                 for layer in model.layers[:26]:
@@ -167,12 +195,22 @@ class LungSegmentationTraining(LungSegmentationBase):
             LOGGER.info('Training and validation started...')
             for ts in range(training_steps):
                 print('Batch {0}/{1}'.format(ts+1, training_steps), end="\r")
-                hist = self.run_batch_all(model, self.x_train, self.y_train, ts, training_bs)
+                if use_data_augmentation:
+                    batch = next(tr_gen)
+                    hist = model.train_on_batch(batch['data'].reshape(-1, 96, 96, 1),
+                                                batch['seg'].reshape(-1, 96, 96, 1))
+                else:
+                    hist = self.run_batch_all(model, self.x_train, self.y_train, ts, training_bs)
                 training_loss.append(hist[0])
                 training_jd.append(hist[1])
                 if ts in validation_index:
-                    hist = self.run_batch_val_all(model, self.x_test, self.y_test,
-                                                  vs, validation_bs)
+                    if use_data_augmentation:
+                        batch = next(val_gen)
+                        hist = model.test_on_batch(batch['data'].reshape(-1, 96, 96, 1),
+                                                   batch['seg'].reshape(-1, 96, 96, 1))
+                    else:
+                        hist = self.run_batch_val_all(model, self.x_test, self.y_test,
+                                                      vs, validation_bs)
                     validation_loss.append(hist[0])
                     validation_jd.append(hist[1])
                     vs = vs+1
@@ -184,8 +222,8 @@ class LungSegmentationTraining(LungSegmentationBase):
                         .format(np.mean(training_loss), np.mean(training_jd)))
             LOGGER.info('Validation loss: {0}. Dice score: {1}'
                         .format(np.mean(validation_loss), np.mean(validation_jd)))
-            weight_name = os.path.join(self.work_dir,
-                                       'double_feat_per_layer_BCE_fold_{0}_plus_MA_plus_human2.h5'.format(fold))
+            weight_name = os.path.join(
+                self.work_dir, 'double_feat_per_layer_BCE_fold_{0}_low_res_mice_da.h5'.format(fold))
 
             if e == 0:
                 LOGGER.info('Saving network weights...')
@@ -207,10 +245,11 @@ class LungSegmentationTraining(LungSegmentationBase):
                             'Training will be stopped.')
                 break
             patience = patience+1
+            with open(os.path.join(self.work_dir, 'Training_loss_fold_{}.txt'
+                                   .format(fold)), 'a') as f:
+                f.write(str(np.mean(training_loss))+'\n')
+            with open(os.path.join(self.work_dir, 'Validation_loss_fold_{}.txt'
+                                   .format(fold)), 'a') as f:
+                f.write(str(np.mean(training_loss))+'\n')
             K.clear_session()
-
-        np.savetxt(os.path.join(self.work_dir, 'Training_loss_fold_{}.txt'.format(fold)),
-                   np.asarray(all_loss_training))
-        np.savetxt(os.path.join(self.work_dir, 'Validation_loss_fold_{}.txt').format(fold),
-                   np.asarray(all_loss_val))
         

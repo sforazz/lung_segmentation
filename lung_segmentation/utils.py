@@ -295,7 +295,10 @@ def normalize(image, method='zscore'):
     elif method == '0-1':
         m = image.min()
         M = image.max()
-        res = (image - m)/(M - m)
+        if (M - m) > 0:
+            res = (image - m)/(M - m)
+        else:
+            res = image
     else:
         raise NotImplementedError('Normalization method called "{}" has not been implemented yet!'.format(method))
 
@@ -333,7 +336,9 @@ def resize_image(image, order=0, new_spacing=(0.1, 0.1, 0.1), save2file=True):
             im2save = nib.Nifti1Image(new_image, affine=affine)
             nib.save(im2save, outname)
 
-    return new_image, tuple(map(int, new_shape)), outname, image.shape
+        return new_image, tuple(map(int, new_shape)), outname, image.shape
+    else:
+        return new_image, np.mean(resampling_factor)
 
 
 def save_prediction_2D(generated_images, dict_val, binarize=False):
@@ -462,8 +467,9 @@ def cluster_correction(image, th=0.5, min_extent=10000):
 
 def eucl_max(image_1, image_2, percentile=95, new_spacing=(3, 3, 3)):
     "Function to calculate the Hausdorff distance between 2 images"
-    image_1_rs, _, _, _ = resize_image(image_1, order=0, new_spacing=new_spacing, save2file=False)
-    image_2_rs, _, _, _ = resize_image(image_2, order=0, new_spacing=new_spacing, save2file=False)
+    image_1_rs, resampling_factor_1 = resize_image(
+        image_1, order=0, new_spacing=new_spacing, save2file=False)
+    image_2_rs, _ = resize_image(image_2, order=0, new_spacing=new_spacing, save2file=False)
 
     image_1_rs[image_1_rs>0] = 1.0
     image_2_rs[image_2_rs>0] = 1.0
@@ -493,7 +499,7 @@ def eucl_max(image_1, image_2, percentile=95, new_spacing=(3, 3, 3)):
     mins = np.concatenate((np.amin(distances, axis=0),
                            np.amin(distances, axis=1)))
 
-    return np.percentile(mins, percentile)
+    return resampling_factor_1*np.percentile(mins, percentile)
 
 
 def _find_border(data):
