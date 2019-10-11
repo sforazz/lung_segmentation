@@ -41,7 +41,7 @@ if __name__ == "__main__":
     PARENT_DIR = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
     os.environ['bin_path'] = os.path.join(PARENT_DIR, 'bin/')
 
-    LOG_DIR = os.path.join(PARENT_DIR, 'logs')
+    LOG_DIR = os.path.join(ARGS.work_dir, 'logs')
     if not os.path.isdir(LOG_DIR):
         os.mkdir(LOG_DIR)
 
@@ -58,6 +58,6 @@ if __name__ == "__main__":
     INFERENCE.create_tensors()
     INFERENCE.run_inference(weights=ARGS.weights)
     INFERENCE.save_inference(min_extent=ARGS.min_extent)
-    INFERENCE.run_evaluation(new_spacing=(3, 3, 3))
+    INFERENCE.run_evaluation()
 
 print('Done!')
