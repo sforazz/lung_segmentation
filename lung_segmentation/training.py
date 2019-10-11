@@ -5,10 +5,8 @@ import logging
 import csv
 import pickle
 from random import sample
-import numpy as np
 from sklearn.model_selection import train_test_split
 from keras.optimizers import Adam
-from keras import backend as K
 from keras import callbacks as cbks
 from lung_segmentation.models import unet_lung
 from lung_segmentation.utils import batch_processing
@@ -17,7 +15,6 @@ from lung_segmentation.loss import dice_coefficient
 from lung_segmentation.dataloader import CSVDataset
 from lung_segmentation import transforms as tx
 from lung_segmentation.generators import DataLoader
-from tensorflow_estimator.python.estimator.canned.linear_testing_utils import AGE_WEIGHT_NAME
 
 LOGGER = logging.getLogger('lungs_segmentation')
 
@@ -92,7 +89,7 @@ class LungSegmentationTraining(LungSegmentationBase):
                 masks = sorted(masks)
 
                 x_train, x_test, y_train, y_test = train_test_split(
-                    data, masks, test_size=0.2, random_state=42)
+                    data, masks, test_size=test_percentage, random_state=42)
 
                 self.x_train = self.x_train + x_train
                 self.x_test = self.x_test + x_test
@@ -114,161 +111,9 @@ class LungSegmentationTraining(LungSegmentationBase):
         else:
             self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
 
-    @staticmethod
-    def run_batch_all(model, batch_files, batch_masks, step, batch_size):
-        "Method to run training for 1 batch"
-        files = batch_files[step*batch_size:(step+1)*batch_size]
-        masks = batch_masks[step*batch_size:(step+1)*batch_size]
-        images = np.asarray([np.load(x) for x in files]).reshape(-1, 96, 96, 1)
-        labels = np.asarray([np.load(x) for x in masks]).reshape(-1, 96, 96, 1)
-        hist = model.train_on_batch(images, labels)
-
-        return hist
-
-    @staticmethod
-    def run_batch_val_all(model, batch_files, batch_masks, step, batch_size):
-        "Method to run validation for 1 batch"
-        files = batch_files[step*batch_size:(step+1)*batch_size]
-        masks = batch_masks[step*batch_size:(step+1)*batch_size]
-        images = np.asarray([np.load(x) for x in files]).reshape(-1, 96, 96, 1)
-        labels = np.asarray([np.load(x) for x in masks]).reshape(-1, 96, 96, 1)
-        hist = model.test_on_batch(images, labels)
-
-        return hist
-
-    @staticmethod
-    def run_batch(model, batch_files, batch_masks, s, batch_size):
-
-        indexes = sample(range(len(batch_files)), batch_size)
-        files = [batch_files[x] for x in indexes]
-        masks = [batch_masks[x] for x in indexes]
-        images = np.asarray([np.load(x) for x in files]).reshape(-1, 96, 96, 1)
-        labels = np.asarray([np.load(x) for x in masks]).reshape(-1, 96, 96, 1)
-        hist = model.train_on_batch(images, labels)
-
-        return hist
-
-    @staticmethod
-    def run_batch_val(model, batch_files, batch_masks, s, batch_size):
-
-        indexes = sample(range(len(batch_files)), batch_size)
-        files = [batch_files[x] for x in indexes]
-        masks = [batch_masks[x] for x in indexes]
-        images = np.asarray([np.load(x) for x in files]).reshape(-1, 96, 96, 1)
-        labels = np.asarray([np.load(x) for x in masks]).reshape(-1, 96, 96, 1)
-        hist = model.test_on_batch(images, labels)
-
-        return hist
-
-#     def prepare_training_parameters(self, n_epochs=100, training_bs=55, validation_bs=55,
-#                                      lr_0=2e-4, training_steps=None, validation_steps=None, fold=0,
-#                                      weight_name=None, keep_training=True):
-# 
-#         self.n_epochs = n_epochs
-#         self.lr_0 = lr_0
-#         self.fold = fold
-#         self.weight_name = weight_name
-#         self.keep_training = keep_training
-#         self.training_bs = training_bs
-#         self.validation_bs = validation_bs
-# 
-#         if training_steps is None:
-#             self.training_steps = math.ceil(len(self.x_train)/training_bs)
-#             self.validation_steps = math.ceil(len(self.x_test)/validation_bs)
-#         else:
-#             self.training_steps = training_steps
-#             self.validation_steps = validation_steps
-# 
-#         if keep_training:
-#             with open(os.path.join(self.work_dir, 'Training_loss_fold_{}.txt'
-#                                    .format(fold)), 'r') as f:
-#                 self.all_loss_training = [float(x) for x in f]
-#             with open(os.path.join(self.work_dir, 'Validation_loss_fold_{}.txt'
-#                                    .format(fold)), 'r') as f:
-#                 self.all_loss_val = [float(x) for x in f]
-#             self.current_epoch = len(self.all_loss_training)
-#         else:
-#             self.all_loss_training = []
-#             self.all_loss_val = []
-#             self.current_epoch = 0
-
-#     def run_training(self):
-#         "Function to run the full training"
-# 
-#         model = unet_lung()
-#         patience = 0
-#         for e in range(self.current_epoch, self.n_epochs):
-#             LOGGER.info('Epoch {}'.format(str(e+1)))
-#             if e > 0 or self.transfer_learning or self.keep_training:
-#                 model = unet_lung(pretrained_weights=self.weight_name)
-#             if self.transfer_learning:
-#                 for layer in model.layers[:26]:
-#                     layer.trainable=False
-#             lr = self.lr_0 * 0.99**e
-#             model.compile(optimizer=Adam(lr), loss='binary_crossentropy',
-#                           metrics=[dice_coefficient])
-#             training_loss = []
-#             training_jd = []
-#             validation_loss = []
-#             validation_jd = []
-#             vs = 0
-# 
-#             LOGGER.info('Training and validation started...')
-#             for ts in range(self.training_steps):
-#                 print('Training batch {0}/{1}'.format(ts+1, self.training_steps), end="\r")
-# 
-#                 hist = self.run_batch_all(model, self.x_train, self.y_train, ts,
-#                                           self.training_bs)
-#                 training_loss.append(hist[0])
-#                 training_jd.append(hist[1])
-#             for vs in range(self.validation_steps):
-#                 print('Validation batch {0}/{1}'.format(vs+1, self.validation_steps), end="\r")
-#                 hist = self.run_batch_val_all(model, self.x_test, self.y_test,
-#                                               vs, self.validation_bs)
-#                 validation_loss.append(hist[0])
-#                 validation_jd.append(hist[1])
-# 
-#             self.all_loss_training.append(np.mean(training_loss))
-#             self.all_loss_val.append(np.mean(validation_loss))
-#             LOGGER.info('Training and validation for epoch {} ended!'.format(str(e+1)))
-#             LOGGER.info('Training loss: {0}. Dice score: {1}'
-#                         .format(np.mean(training_loss), np.mean(training_jd)))
-#             LOGGER.info('Validation loss: {0}. Dice score: {1}'
-#                         .format(np.mean(validation_loss), np.mean(validation_jd)))
-#             weight_name = os.path.join(
-#                 self.work_dir, 'double_feat_per_layer_BCE_fold_{0}_low_res_mice_da_2.h5'.format(self.fold))
-# 
-#             if e == 0:
-#                 LOGGER.info('Saving network weights...')
-#                 model.save_weights(weight_name)
-#             elif (e > 0 and (self.all_loss_val[e] < np.min(self.all_loss_val[:-1]))
-#                     or (self.all_loss_training[e] < np.min(self.all_loss_training[:-1]))):
-#                 patience = 0
-#                 LOGGER.info('Saving network weights...')
-#                 model.save_weights(weight_name)
-#             elif (e >= 0 and ((self.all_loss_val[e] >= np.min(self.all_loss_val[:-1]))
-#                     and (self.all_loss_training[e] >= np.min(self.all_loss_training[:-1]))) and patience < 10):
-#                 LOGGER.info('No validation loss improvement with respect to '
-#                             'the previous epochs. Weights will not be saved.')
-#             elif (e >= 0 and ((self.all_loss_val[e] >= np.min(self.all_loss_val[:-1]))
-#                     or (self.all_loss_training[e] >= np.min(self.all_loss_training[:-1])))
-#                     and patience >= 10):
-#                 LOGGER.info('No validation loss improvement with respect '
-#                             'to the previous epochs in the last 10 iterations.'
-#                             'Training will be stopped.')
-#                 break
-#             patience = patience+1
-#             with open(os.path.join(self.work_dir, 'Training_loss_fold_{}.txt'
-#                                    .format(self.fold)), 'a') as f:
-#                 f.write(str(np.mean(training_loss))+'\n')
-#             with open(os.path.join(self.work_dir, 'Validation_loss_fold_{}.txt'
-#                                    .format(self.fold)), 'a') as f:
-#                 f.write(str(np.mean(validation_loss))+'\n')
-#             K.clear_session()
-
-    def run_training_augmented(self, n_epochs=100, training_bs=55, validation_bs=55,
-                               lr_0=2e-4, training_steps=None, validation_steps=None,
-                               weight_name=None, data_augmentation=True, keep_training=False):
+    def run_training(self, n_epochs=100, training_bs=55, validation_bs=55,
+                     lr_0=2e-4, training_steps=None, validation_steps=None,
+                     weight_name=None, data_augmentation=True, keep_training=False):
         "Function to run training with data augmentation"
 
         if training_steps is None:
@@ -341,19 +186,3 @@ class LungSegmentationTraining(LungSegmentationBase):
                 history.history[key_val] =  past_hist[key_val] + history.history[key_val]
         with open(os.path.join(self.work_dir, 'training_history.p'), 'wb') as file_pi:
             pickle.dump(history.history, file_pi)
-
-#     def save2csv(self):
-#         "Function to create a csv file before running the training with data augmentation"
-#         images = self.x_train + self.x_test
-#         masks = self.y_train + self.y_test
-#         labels = ['train']*len(self.x_train) + ['test']*len(self.x_test)
-#         data_dict = {}
-#         data_dict['images'] = images
-#         data_dict['masks'] = masks
-#         data_dict['train-test'] = labels
-#         self.csv_file = os.path.join(
-#             self.work_dir, 'image_filemap.csv')
-#         with open(self.csv_file, 'w') as csvfile:
-#             writer = csv.writer(csvfile) 
-#             writer.writerow(data_dict.keys())
-#             writer.writerows(zip(*data_dict.values()))

@@ -7,7 +7,7 @@ import numpy as np
 from skimage.transform import resize
 from lung_segmentation.utils import (binarization, dice_calculation,
                                      violin_box_plot, cluster_correction,
-                                     eucl_max, batch_processing)
+                                     run_hd, batch_processing)
 from lung_segmentation.models import unet_lung
 from lung_segmentation.base import LungSegmentationBase
 
@@ -124,7 +124,7 @@ class LungSegmentationInference(LungSegmentationBase):
 
         return final_image
 
-    def run_evaluation(self, new_spacing=(1, 1, 1)):
+    def run_evaluation(self):
         "Function to evaluate the segmentation w.r.t. a ground truth"
         assert len(self.predicted_images) == len(self.preprocessed_masks)
         all_dsc = []
@@ -134,12 +134,10 @@ class LungSegmentationInference(LungSegmentationBase):
             gt = self.preprocessed_masks[i]
             dsc = dice_calculation(gt, predicted)
             all_dsc.append(dsc)
-            hd_95 = eucl_max(gt, predicted, new_spacing=new_spacing)
-            hd_95_1 = eucl_max(predicted, gt, new_spacing=new_spacing)
-            all_hd.append(np.max([hd_95, hd_95_1]))
-            hd_100 = eucl_max(gt, predicted, new_spacing=new_spacing, percentile=100)
-            hd_100_1 = eucl_max(predicted, gt, new_spacing=new_spacing, percentile=100)
-            all_hd_100.append(np.max([hd_100, hd_100_1]))
+            hd_95 = run_hd(gt, predicted, mode='95')
+            all_hd.append(hd_95)
+            hd_100 = run_hd(gt, predicted)
+            all_hd_100.append(hd_100)
 
         violin_box_plot(all_dsc, os.path.join(self.work_dir, 'DSC_violin_plot.png'))
         violin_box_plot(all_hd, os.path.join(self.work_dir, 'HD_violin_plot.png'))
@@ -155,7 +153,8 @@ class LungSegmentationInference(LungSegmentationBase):
         LOGGER.info('HD_max 75th percentile: %s', np.percentile(all_hd_100, 75))
         LOGGER.info('Max DSC: %s', np.max(all_dsc))
         LOGGER.info('Min DSC: %f', np.min(all_dsc))
-        LOGGER.info('Image with minumum DSC: %s', self.predicted_images[np.where(np.asarray(all_dsc)==np.min(all_dsc))[0][0]])
+        LOGGER.info('Image with minumum DSC: %s',
+                    self.predicted_images[np.where(np.asarray(all_dsc)==np.min(all_dsc))[0][0]])
         LOGGER.info('Max HD_95: %f', np.max(all_hd))
         LOGGER.info('Min HD_95: %f', np.min(all_hd))
         LOGGER.info('Max HD_max: %f', np.max(all_hd_100))

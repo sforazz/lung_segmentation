@@ -92,17 +92,11 @@ if __name__ == "__main__":
     if not ARGS.pre_processing_only:
         WORKFLOW.create_tensors()
         WORKFLOW.data_split(additional_dataset=ARGS.additional_dataset)
-#         WORKFLOW.prepare_training_parameters(
-#             n_epochs=ARGS.epochs, keep_training=ARGS.keep_training,
-#             weight_name=ARGS.pretrained_weights, training_steps=ARGS.training_steps,
-#             validation_steps=ARGS.validation_steps)
-        WORKFLOW.run_training_augmented(
+        WORKFLOW.run_training(
             n_epochs=ARGS.epochs, keep_training=ARGS.keep_training,
             weight_name=ARGS.pretrained_weights, training_steps=ARGS.training_steps,
             validation_steps=ARGS.validation_steps,
             data_augmentation=ARGS.use_data_augmentation)
-#         else:
-#             WORKFLOW.run_training()
     elif ARGS.pre_processing_only and ARGS.create_tensors:
         WORKFLOW.create_tensors()
 

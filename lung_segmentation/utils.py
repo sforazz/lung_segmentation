@@ -17,9 +17,7 @@ import pandas as pd
 import matplotlib.pyplot as plot
 import matplotlib.cbook as cbook
 import subprocess as sp
-from scipy.spatial.distance import cdist
-from scipy.ndimage.morphology import binary_erosion
-import cv2
+from medpy.metric.binary import hd, hd95, dc
 
 
 ALLOWED_EXT = ['.xlsx', '.csv']
@@ -377,13 +375,14 @@ def dice_calculation(gt, seg):
     seg = np.squeeze(seg)
     gt = gt.astype('uint16')
     seg = seg.astype('uint16')
-    vox_gt = np.sum(gt) 
-    vox_seg = np.sum(seg)
-    try:
-        common = np.sum(gt & seg)
-    except:
-        print(gt)
-    dice = (2*common)/(vox_gt+vox_seg) 
+    dice = dc(seg, gt)
+#     vox_gt = np.sum(gt) 
+#     vox_seg = np.sum(seg)
+#     try:
+#         common = np.sum(gt & seg)
+#     except:
+#         print(gt)
+#     dice = (2*common)/(vox_gt+vox_seg) 
     return dice
 
 
@@ -465,54 +464,18 @@ def cluster_correction(image, th=0.5, min_extent=10000):
     return outname_nrrd
 
 
-def eucl_max(image_1, image_2, percentile=95, new_spacing=(3, 3, 3)):
-    "Function to calculate the Hausdorff distance between 2 images"
-    image_1_rs, resampling_factor_1 = resize_image(
-        image_1, order=0, new_spacing=new_spacing, save2file=False)
-    image_2_rs, _ = resize_image(image_2, order=0, new_spacing=new_spacing, save2file=False)
+def run_hd(image1, image2, mode='max'):
 
-    image_1_rs[image_1_rs>0] = 1.0
-    image_2_rs[image_2_rs>0] = 1.0
-
-    image_1_rs = np.logical_not(
-        np.logical_or(image_1_rs==0, np.isnan(image_1_rs)))
-    image_2_rs = np.logical_not(
-        np.logical_or(image_2_rs==0, np.isnan(image_2_rs)))
-
-    if image_1_rs.max() == 0 or image_2_rs.max() == 0:
-        return np.NaN
-
-    border1 = _find_border(image_1_rs)
-    border2 = _find_border(image_2_rs)
-
-    _, image_1_hd = nrrd.read(image_1)
-    affine_1 = np.eye(4)
-    affine_1[:3, :3] = image_1_hd['space directions']
-    _, image_2_hd = nrrd.read(image_2)
-    affine_2 = np.eye(4)
-    affine_2[:3, :3] = image_2_hd['space directions']
-
-    set1_coordinates = _get_coordinates(border1, affine_1)
-    set2_coordinates = _get_coordinates(border2, affine_2)
-
-    distances = cdist(set1_coordinates.T, set2_coordinates.T)
-    mins = np.concatenate((np.amin(distances, axis=0),
-                           np.amin(distances, axis=1)))
-
-    return resampling_factor_1*np.percentile(mins, percentile)
-
-
-def _find_border(data):
-
-        eroded = binary_erosion(data)
-        border = np.logical_and(data, np.logical_not(eroded))
-        return border
-
-
-def _get_coordinates(data, affine):
-    if len(data.shape) == 4:
-        data = data[:, :, :, 0]
-    indices = np.vstack(np.nonzero(data))
-    indices = np.vstack((indices, np.ones(indices.shape[1])))
-    coordinates = np.dot(affine, indices)
-    return coordinates[:3, :]
+    image1_data, hd1 = nrrd.read(image1)
+    space_x = np.abs(hd1['space directions'][0, 0])
+    space_y = np.abs(hd1['space directions'][1, 1])
+    space_z = np.abs(hd1['space directions'][2, 2])
+    image2_data, _ = nrrd.read(image2)
+    if mode == 'max':
+        hd_val = hd(image1_data, image2_data, (space_x, space_y, space_z))
+    elif mode == '95':
+        hd_val = hd95(image1_data, image2_data, (space_x, space_y, space_z))
+    else:
+        raise Exception('Unknown mode "{}". Possible values are "max" or "95".'
+                        .format(mode))
+    return hd_val
