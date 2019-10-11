@@ -34,56 +34,76 @@ if __name__ == "__main__":
                         help=('Path to the folder with additional dataset that have to be '
                               'for training. They have to be already pre-processed '
                               'using the pre-processing class.'))
-    PARSER.add_argument('--epochs', '-e', type=int,
+    PARSER.add_argument('--epochs', '-e', type=int, default=100,
                         help=('Number of epochs. Default is 100.'))
     PARSER.add_argument('--pre-processing-only', '-pp', action='store_true',
                         help=('If True, only the pre-processing will be performed. Useful '
                               'when you want to run the training using more than one dataset. '
                               'You can run the pre-processing first and than the training '
                               'providing the option --additional-dataset.'))
-    PARSER.add_argument('--testing', '-ts', action='store_true',
+    PARSER.add_argument('--create-tensors', action='store_true',
+                        help=('If True and --pre-processing-only was selected, the tensors '
+                              'for the training will be created.'))
+    PARSER.add_argument('--testing', '-t', action='store_true',
                         help=('If True, some of the folders specified in --input_file '
                               'will be removed from the training and left for testing '
                               'the network performance.'))
+    PARSER.add_argument('--keep-training', action='store_true',
+                        help=('If True, the training will continue from the latest '
+                              'saved timepoint.'))
+    PARSER.add_argument('--transfer-learning', '-tl', action='store_true',
+                        help=('If True, a transfer learning approach will be used to '
+                              'train on a new dataset. In this case, only the decoder '
+                              'part of the UNet will be trained.'))
+    PARSER.add_argument('--pretrained-weights', '-pw', type=str,
+                        help=('If --keep-training or --transfer-learning, then you have '
+                              'to specify the path to the pre-trained weights using this '
+                              'command.'))
+    PARSER.add_argument('--use-data-augmentation', '-da', action='store_true',
+                        help=('If True, data augmentation will be used during training.'))
+    PARSER.add_argument('--training-steps', '-ts', type=int, default=None,
+                        help=('Number of training steps per epoch. Default is training size '
+                              'divided by training batch size.'))
+    PARSER.add_argument('--validation-steps', '-vs', type=int, default=None,
+                        help=('Number of validation steps per epoch. Default is validation size '
+                              'divided by validation batch size.'))
 
     ARGS = PARSER.parse_args()
 
     PARENT_DIR = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
     os.environ['bin_path'] = os.path.join(PARENT_DIR, 'bin/')
 
-    LOG_DIR = os.path.join(PARENT_DIR, 'logs')
+    LOG_DIR = os.path.join(ARGS.work_dir, 'logs')
     if not os.path.isdir(LOG_DIR):
         os.mkdir(LOG_DIR)
 
     LOGGER = create_log(LOG_DIR)
-    print(ARGS.spacing)
+
     if ARGS.spacing is not None:
         NEW_SPACING = (ARGS.spacing[0], ARGS.spacing[1], ARGS.spacing[2])
     else:
         NEW_SPACING = None
 
-    WORKFLOW = LungSegmentationTraining(ARGS.input_file, ARGS.work_dir, deep_check=ARGS.dcm_check)
+    WORKFLOW = LungSegmentationTraining(ARGS.input_file, ARGS.work_dir,
+                                        deep_check=ARGS.dcm_check,
+                                        tl=ARGS.transfer_learning)
     WORKFLOW.get_data(root_path=ARGS.root_path, testing=ARGS.testing)
     WORKFLOW.preprocessing(new_spacing=NEW_SPACING)
     if not ARGS.pre_processing_only:
         WORKFLOW.create_tensors()
         WORKFLOW.data_split(additional_dataset=ARGS.additional_dataset)
-        WORKFLOW.run_training(n_epochs=ARGS.epochs)
+#         WORKFLOW.prepare_training_parameters(
+#             n_epochs=ARGS.epochs, keep_training=ARGS.keep_training,
+#             weight_name=ARGS.pretrained_weights, training_steps=ARGS.training_steps,
+#             validation_steps=ARGS.validation_steps)
+        WORKFLOW.run_training_augmented(
+            n_epochs=ARGS.epochs, keep_training=ARGS.keep_training,
+            weight_name=ARGS.pretrained_weights, training_steps=ARGS.training_steps,
+            validation_steps=ARGS.validation_steps,
+            data_augmentation=ARGS.use_data_augmentation)
+#         else:
+#             WORKFLOW.run_training()
+    elif ARGS.pre_processing_only and ARGS.create_tensors:
+        WORKFLOW.create_tensors()
 
-# input_dir = '/home/fsforazz/Desktop/PhD_project/fibrosis_project/mouse_list_endo.xlsx'
-# work_dir = '/mnt/sdb/endo_no_mask/'
-# parent_dir = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
-# 
-# os.environ['bin_path'] = os.path.join(parent_dir, 'bin/')
-# log_dir = os.path.join(work_dir, 'logs')
-# if not os.path.isdir(log_dir):
-#     os.makedirs(log_dir)
-# 
-# logger = create_log(log_dir)
-# 
-# ls = LungSegmentationTraining(input_dir, work_dir, deep_check=False, tl=False)
-# ls.get_data(root_path='/mnt/sdb/mouse_fibrosis_data/')
-# ls.preprocessing(new_spacing=(args.spacing[0], 1, 1))
-# ls.create_tensors()
-# ls.data_split(additional_dataset=['/mnt/sdb/tl_mouse_MA_all/training', '/mnt/sdb/human_seg/training'])
-# ls.run_training(n_epochs=100)
+LOGGER.info('Everything is done!')

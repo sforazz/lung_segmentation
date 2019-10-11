@@ -11,6 +11,7 @@ import nibabel as nib
 import nrrd
 import cv2
 from lung_segmentation.utils import split_filename
+import matplotlib.pyplot as plot
 
 
 LOGGER = logging.getLogger('lungs_segmentation')
@@ -137,6 +138,8 @@ class ImageCropping():
 
         mean_Z = int(np.ceil((dimZ)/2))
 
+#         average_intensity = (np.max(im)-np.min(im))/7
+#         im[im<np.min(im)+average_intensity] = np.min(im)
         im[im<np.min(im)+824] = np.min(im)
 
         _, y1 = np.where(im[:, :, mean_Z] != np.min(im))
@@ -149,7 +152,7 @@ class ImageCropping():
                                              connectivity=8))
         sizes = stats[1:, -1]
         nb_components = nb_components - 1
-        min_size = 200
+        min_size = 100/space_x
         img2 = np.zeros((output.shape))
         for i in range(0, nb_components):
             if sizes[i] >= min_size:
@@ -226,11 +229,12 @@ class ImageCropping():
         for n_mice, i in enumerate(range(0, len(xx), 2)):
             coordinates = {}
             mp = int((xx[i+1] + xx[i])/2)
-            croppedImage = im[xx[i]:xx[i+1], indY-int(min_size_y):indY,
+            y0 = indY-int(min_size_y) if indY-int(min_size_y) > 0 else 0
+            croppedImage = im[xx[i]:xx[i+1], y0:indY,
                               mean_Z-int(min_size_z/2):mean_Z+int(min_size_z/2)]
             imageHD['sizes'] = np.array(croppedImage.shape)
             coordinates['x'] = [mp-int(min_size_x/2), mp+int(min_size_x/2)]
-            coordinates['y'] = [indY-min_size_y, indY]
+            coordinates['y'] = [y0, indY]
             coordinates['z'] = [mean_Z-int(min_size_z/2), mean_Z+int(min_size_z/2)]
 
             with open(self.imageOutname+'_{}.p'.format(image_names[n_mice]), 'wb') as fp:

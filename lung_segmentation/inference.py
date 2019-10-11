@@ -31,7 +31,7 @@ class LungSegmentationInference(LungSegmentationBase):
                                    'test_subjects_gt_masks.txt'), 'r') as f:
                 self.mask_paths = [x.strip() for x in f]
         elif os.path.isfile(self.input_path):
-            self.dcm_folders, _ = batch_processing(self.input_path, root=root_path)
+            self.dcm_folders, self.mask_paths = batch_processing(self.input_path, root=root_path)
         else:
             LOGGER.info('No folder called "inference" in the working directory.'
                         ' The pipeline will look for DICOM file to use for '

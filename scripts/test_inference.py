@@ -20,7 +20,7 @@ if __name__ == "__main__":
                         help=('Minimum lung extension (in voxels) that will be used to '
                               'run the final correction after the inference. For mouse acquired '
                               'with clinical CT, 400 should be enough, while for micro-CT or human '
-                              'date this can be set to 10000. Default is 400.'))
+                              'date this should be set to 30000-40000. Default is 400.'))
     PARSER.add_argument('--dcm-check', '-dc', action='store_true',
                         help=('Whether or not to carefully check the DICOM header. '
                               'This check is based on our data and might too stringent for other'
@@ -58,6 +58,6 @@ if __name__ == "__main__":
     INFERENCE.create_tensors()
     INFERENCE.run_inference(weights=ARGS.weights)
     INFERENCE.save_inference(min_extent=ARGS.min_extent)
-#     inference.run_evaluation()
+    INFERENCE.run_evaluation(new_spacing=(3, 3, 3))
 
 print('Done!')
