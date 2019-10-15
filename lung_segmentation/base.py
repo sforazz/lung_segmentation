@@ -61,16 +61,16 @@ class LungSegmentationBase():
 
         if os.path.isfile(os.path.join(self.work_dir, 'processed_NRRD.txt')):
             with open(os.path.join(self.work_dir, 'processed_NRRD.txt'), 'r') as f:
-                processed_nrrd = [x.strip() for x in f]
+                processed_nrrd = [x.strip().split('/')[-1] for x in f]
             for sub in processed_nrrd:
                 self.precomputed_images = self.precomputed_images + sorted(glob.glob(
-                    os.path.join(sub, 'Raw_data*resampled.nrrd')))
+                    os.path.join(self.work_dir, sub, 'Raw_data*resampled.nrrd')))
                 if not self.testing:
-                    masks = [x for x in sorted(glob.glob(os.path.join(sub, '*resampled.nrrd')))
-                             if 'Raw_data' not in x]
+                    masks = [x for x in sorted(glob.glob(os.path.join(
+                        self.work_dir, sub, '*resampled.nrrd'))) if 'Raw_data' not in x]
                 elif self.testing or new_spacing is None:
-                    masks = [x for x in sorted(glob.glob(os.path.join(sub, '*cropped.nrrd')))
-                             if 'Raw_data' not in x]
+                    masks = [x for x in sorted(glob.glob(os.path.join(
+                        self.work_dir, sub, '*cropped.nrrd'))) if 'Raw_data' not in x]
                 self.precomputed_masks = self.precomputed_masks + masks
         if os.path.isfile(os.path.join(self.work_dir, 'image_info.p')):
             with open(os.path.join(self.work_dir, 'image_info.p'), 'rb') as fp:
