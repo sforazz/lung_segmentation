@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     LOG_DIR = os.path.join(ARGS.work_dir, 'logs')
     if not os.path.isdir(LOG_DIR):
-        os.mkdir(LOG_DIR)
+        os.makedirs(LOG_DIR)
 
     LOGGER = create_log(LOG_DIR)
 

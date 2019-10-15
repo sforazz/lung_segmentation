@@ -223,7 +223,7 @@ def dicom_check(raw_data, temp_dir, deep_check=True):
             ext = '.dcm'
     else:
         ext = '.IMA'
-    
+
     if not os.path.isdir(temp_dir):
         os.mkdir(temp_dir)
     basename = raw_data.split('/')[-1]
@@ -232,14 +232,14 @@ def dicom_check(raw_data, temp_dir, deep_check=True):
 
     sequence_numbers = list(set([str(pydicom.read_file(x).SeriesNumber) for x in dicoms]))
     if len(sequence_numbers) > 1 and deep_check:
-        for n_seq in sequence_numbers:                     
+        for n_seq in sequence_numbers:
             dicom_vols = [x for x in dicoms if n_seq==str(pydicom.read_file(x).SeriesNumber)]
             dcm_hd = pydicom.read_file(dicom_vols[0])
             if len(dicom_vols) > 1 and '50s' in dcm_hd.SeriesDescription and not processed:
                 dcm = DicomInfo(dicom_vols)
                 _, tag = dcm.get_tag(['AcquisitionDate', 'SeriesTime'])
-                folder_name = temp_dir+'/{0}_date_{1}_time_{2}'.format(basename, tag['AcquisitionDate'][0],
-                                                                       tag['SeriesTime'][0])
+                folder_name = temp_dir+'/{0}_date_{1}_time_{2}'.format(
+                    basename, tag['AcquisitionDate'][0], tag['SeriesTime'][0])
                 slices = [pydicom.read_file(x).InstanceNumber for x in dicom_vols]
                 if len(slices) != len(set(slices)):
                     print('Duplicate slices found in {} for H50s sequence. Please check. '

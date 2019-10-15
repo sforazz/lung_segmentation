@@ -11,7 +11,7 @@ from keras import callbacks as cbks
 from lung_segmentation.models import unet_lung
 from lung_segmentation.utils import batch_processing
 from lung_segmentation.base import LungSegmentationBase
-from lung_segmentation.loss import dice_coefficient
+from lung_segmentation.loss import dice_coefficient, loss_dice_coefficient_error
 from lung_segmentation.dataloader import CSVDataset
 from lung_segmentation import transforms as tx
 from lung_segmentation.generators import DataLoader
@@ -70,7 +70,7 @@ class LungSegmentationTraining(LungSegmentationBase):
                    test_percentage=0.2):
         "Function to split the whole dataset into training and validation"
 
-        if not os.path.join(self.work_dir, 'image_filemap.csv') or delete_existing:
+        if not os.path.isfile(os.path.join(self.work_dir, 'image_filemap.csv')) or delete_existing:
             self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
             w_dirs = [self.work_dir] + additional_dataset
             LOGGER.info('Splitting the dataset into training ({0}%) and validation ({1}%).'
@@ -105,7 +105,7 @@ class LungSegmentationTraining(LungSegmentationBase):
             data_dict['train-test'] = labels
 
             with open(self.csv_file, 'w') as csvfile:
-                writer = csv.writer(csvfile) 
+                writer = csv.writer(csvfile)
                 writer.writerow(data_dict.keys())
                 writer.writerows(zip(*data_dict.values()))
         else:
@@ -115,20 +115,12 @@ class LungSegmentationTraining(LungSegmentationBase):
                      lr_0=2e-4, training_steps=None, validation_steps=None,
                      weight_name=None, data_augmentation=True, keep_training=False):
         "Function to run training with data augmentation"
-
-        if training_steps is None:
-            training_steps = math.ceil(len(self.x_train)/training_bs)
-            validation_steps = math.ceil(len(self.x_test)/validation_bs)
-        else:
-            training_steps = training_steps
-            validation_steps = validation_steps
-
         if data_augmentation:
             co_tx = tx.Compose([tx.RandomAffine(rotation_range=(-15,15),
                                                 translation_range=(0.1,0.1),
                                                 shear_range=(-10,10),
-                                                zoom_range=(0.85,1.15),
-                                                turn_off_frequency=5,
+                                                zoom_range=(0.65,1.35),
+                                                turn_off_frequency=6,
                                                 fill_value='min',
                                                 target_fill_mode='constant',
                                                 target_fill_value='min')])
@@ -143,29 +135,42 @@ class LungSegmentationTraining(LungSegmentationBase):
 
         val_data, train_data = dataset.split_by_column('train-test')
 
+        if training_steps is None:
+            training_steps = math.ceil(len(train_data)/training_bs)
+            validation_steps = math.ceil(len(val_data)/validation_bs)
+        else:
+            training_steps = training_steps
+            validation_steps = validation_steps
+
         train_loader = DataLoader(train_data, batch_size=training_bs, shuffle=True)
         val_loader = DataLoader(val_data, batch_size=validation_bs, shuffle=True)
         if weight_name is None:
             weight_name = os.path.join(
                 self.work_dir, 'double_feat_per_layer_BCE_augmented.h5')
+
         # create model
+        initial_epoch = 0
         if self.transfer_learning or keep_training:
             model = unet_lung(pretrained_weights=weight_name)
         else:
             model = unet_lung()
-            initial_epoch = 0
 
         if keep_training:
-            with open(os.path.join(self.work_dir, 'training_history.p'), 'rb') as file_pi:
-                past_hist = pickle.load(file_pi)
-            initial_epoch = len(past_hist['val_loss'])
-            lr_0 = past_hist['lr'][-1]
+            try:
+                with open(os.path.join(self.work_dir, 'training_history.p'), 'rb') as file_pi:
+                    past_hist = pickle.load(file_pi)
+                initial_epoch = len(past_hist['val_loss'])
+                lr_0 = past_hist['lr'][-1]
+            except FileNotFoundError:
+                LOGGER.info('No training history found. The training will start from epoch 1')
 
         if self.transfer_learning:
             for layer in model.layers[:26]:
                 layer.trainable=False
+            weight_name = os.path.join(
+                self.work_dir, 'double_feat_per_layer_BCE_augmented_tl.h5')
 
-        model.compile(optimizer=Adam(lr_0), loss='binary_crossentropy',
+        model.compile(optimizer=Adam(lr_0), loss=loss_dice_coefficient_error,
                       metrics=[dice_coefficient])
 
         callbacks = [cbks.ModelCheckpoint(weight_name, monitor='val_loss',
