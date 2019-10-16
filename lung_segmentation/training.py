@@ -11,7 +11,7 @@ from keras import callbacks as cbks
 from lung_segmentation.models import unet_lung
 from lung_segmentation.utils import batch_processing
 from lung_segmentation.base import LungSegmentationBase
-from lung_segmentation.loss import dice_coefficient, loss_dice_coefficient_error
+from lung_segmentation.loss import dice_coefficient, loss_dice_coefficient_error, combined_loss
 from lung_segmentation.dataloader import CSVDataset
 from lung_segmentation import transforms as tx
 from lung_segmentation.generators import DataLoader
@@ -111,7 +111,7 @@ class LungSegmentationTraining(LungSegmentationBase):
         else:
             self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
 
-    def run_training(self, n_epochs=100, training_bs=55, validation_bs=55,
+    def run_training(self, n_epochs=100, training_bs=50, validation_bs=50,
                      lr_0=2e-4, training_steps=None, validation_steps=None,
                      weight_name=None, data_augmentation=True, keep_training=False):
         "Function to run training with data augmentation"
@@ -120,7 +120,7 @@ class LungSegmentationTraining(LungSegmentationBase):
                                                 translation_range=(0.1,0.1),
                                                 shear_range=(-10,10),
                                                 zoom_range=(0.65,1.35),
-                                                turn_off_frequency=6,
+                                                turn_off_frequency=5,
                                                 fill_value='min',
                                                 target_fill_mode='constant',
                                                 target_fill_value='min')])
@@ -170,7 +170,7 @@ class LungSegmentationTraining(LungSegmentationBase):
             weight_name = os.path.join(
                 self.work_dir, 'double_feat_per_layer_BCE_augmented_tl.h5')
 
-        model.compile(optimizer=Adam(lr_0), loss=loss_dice_coefficient_error,
+        model.compile(optimizer=Adam(lr_0), loss=combined_loss,
                       metrics=[dice_coefficient])
 
         callbacks = [cbks.ModelCheckpoint(weight_name, monitor='val_loss',

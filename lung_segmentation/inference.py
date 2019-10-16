@@ -133,14 +133,21 @@ class LungSegmentationInference(LungSegmentationBase):
         for i, predicted in enumerate(self.predicted_images):
             gt = self.preprocessed_masks[i]
             dsc = dice_calculation(gt, predicted)
-            all_dsc.append(dsc)
             hd_95 = run_hd(gt, predicted, mode='95')
-            all_hd.append(hd_95)
             hd_100 = run_hd(gt, predicted)
-            all_hd_100.append(hd_100)
+            if dsc is not None and hd_95 is not None and hd_100 is not None:
+                all_hd.append(hd_95)
+                all_hd_100.append(hd_100)
+                all_dsc.append(dsc)
+            else:
+                LOGGER.info('Evaluation metrics cannot be calculated for image {}.'
+                            ' Probably the reference and the predicted image have '
+                            'different origin. This image will be ignored. '
+                            'Please check.'.format(predicted))
 
         violin_box_plot(all_dsc, os.path.join(self.work_dir, 'DSC_violin_plot.png'))
-        violin_box_plot(all_hd, os.path.join(self.work_dir, 'HD_violin_plot.png'))
+        violin_box_plot(all_hd, os.path.join(self.work_dir, 'HD_95_violin_plot.png'))
+        violin_box_plot(all_hd_100, os.path.join(self.work_dir, 'HD_max_violin_plot.png'))
 
         LOGGER.info('Median DSC: %s', np.median(all_dsc))
         LOGGER.info('DSC 25th percentile: %s', np.percentile(all_dsc, 25))

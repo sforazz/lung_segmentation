@@ -370,12 +370,15 @@ def save_prediction_2D(generated_images, dict_val, binarize=False):
 
 def dice_calculation(gt, seg):
 
-    gt, _ = nrrd.read(gt)
-    seg, _ = nrrd.read(seg)
-    seg = np.squeeze(seg)
-    gt = gt.astype('uint16')
-    seg = seg.astype('uint16')
-    dice = dc(seg, gt)
+    gt, hd_gt = nrrd.read(gt)
+    seg, hd_seg = nrrd.read(seg)
+    if (hd_seg['space origin'] == hd_gt['space origin']).all():
+        seg = np.squeeze(seg)
+        gt = gt.astype('uint16')
+        seg = seg.astype('uint16')
+        dice = dc(seg, gt)
+    else:
+        dice = None
 #     vox_gt = np.sum(gt) 
 #     vox_seg = np.sum(seg)
 #     try:
@@ -470,12 +473,15 @@ def run_hd(image1, image2, mode='max'):
     space_x = np.abs(hd1['space directions'][0, 0])
     space_y = np.abs(hd1['space directions'][1, 1])
     space_z = np.abs(hd1['space directions'][2, 2])
-    image2_data, _ = nrrd.read(image2)
-    if mode == 'max':
-        hd_val = hd(image1_data, image2_data, (space_x, space_y, space_z))
-    elif mode == '95':
-        hd_val = hd95(image1_data, image2_data, (space_x, space_y, space_z))
+    image2_data, hd2 = nrrd.read(image2)
+    if (hd1['space origin'] == hd2['space origin']).all():
+        if mode == 'max':
+            hd_val = hd(image1_data, image2_data, (space_x, space_y, space_z))
+        elif mode == '95':
+            hd_val = hd95(image1_data, image2_data, (space_x, space_y, space_z))
+        else:
+            raise Exception('Unknown mode "{}". Possible values are "max" or "95".'
+                            .format(mode))
     else:
-        raise Exception('Unknown mode "{}". Possible values are "max" or "95".'
-                        .format(mode))
+        hd_val = None
     return hd_val
