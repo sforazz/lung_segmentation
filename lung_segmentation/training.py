@@ -15,6 +15,10 @@ from lung_segmentation.loss import dice_coefficient, loss_dice_coefficient_error
 from lung_segmentation.dataloader import CSVDataset
 from lung_segmentation import transforms as tx
 from lung_segmentation.generators import DataLoader
+from sklearn.model_selection import KFold
+import numpy as np
+import glob
+
 
 LOGGER = logging.getLogger('lungs_segmentation')
 
@@ -66,12 +70,13 @@ class LungSegmentationTraining(LungSegmentationBase):
         "Function to create the tensors used for training the CNN"
         return LungSegmentationBase.create_tensors(self, patch_size=patch_size, save2npy=save2npy)
 
-    def data_split(self, additional_dataset=[], delete_existing=False,
-                   test_percentage=0.2):
+    def data_split(self, additional_dataset=[], delete_existing=True,
+                   test_percentage=0.2, fold=5):
         "Function to split the whole dataset into training and validation"
-
-        if not os.path.isfile(os.path.join(self.work_dir, 'image_filemap.csv')) or delete_existing:
-            self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
+        self.csv_file = sorted(glob.glob(os.path.join(self.work_dir, 'image_filemap_fold*.csv')))
+        if len(self.csv_file) != fold or delete_existing:
+#         if not os.path.isfile(os.path.join(self.work_dir, 'image_filemap.csv')) or delete_existing:
+#             self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
             w_dirs = [self.work_dir] + additional_dataset
             LOGGER.info('Splitting the dataset into training ({0}%) and validation ({1}%).'
                         .format((100-test_percentage*100), test_percentage*100))
@@ -98,96 +103,114 @@ class LungSegmentationTraining(LungSegmentationBase):
 
             images = self.x_train + self.x_test
             masks = self.y_train + self.y_test
-            labels = ['train']*len(self.x_train) + ['test']*len(self.x_test)
             data_dict = {}
             data_dict['images'] = images
             data_dict['masks'] = masks
-            data_dict['train-test'] = labels
-
-            with open(self.csv_file, 'w') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(data_dict.keys())
-                writer.writerows(zip(*data_dict.values()))
-        else:
-            self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
+            if fold > 1:
+                kf = KFold(n_splits=fold)
+                fold_number = 0
+                for train_index, test_index in kf.split(images):
+                    labels = np.zeros(len(images), dtype='U5')
+                    labels[train_index] = 'train'
+                    labels[test_index] = 'test'
+                    data_dict['train-test'] = labels
+                    with open(os.path.join(self.work_dir, 'image_filemap_fold{}.csv'
+                                           .format(fold_number)), 'w') as csvfile:
+                        writer = csv.writer(csvfile)
+                        writer.writerow(data_dict.keys())
+                        writer.writerows(zip(*data_dict.values()))
+                    self.csv_file.append(os.path.join(self.work_dir, 'image_filemap_fold{}.csv'
+                                                      .format(fold_number)))
+                    fold_number += 1
+            else:
+                labels = ['train']*len(self.x_train) + ['test']*len(self.x_test)
+                data_dict['train-test'] = labels
+                with open(os.path.join(self.work_dir, 'image_filemap_fold0.csv'), 'w') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(data_dict.keys())
+                    writer.writerows(zip(*data_dict.values()))
 
     def run_training(self, n_epochs=100, training_bs=50, validation_bs=50,
                      lr_0=2e-4, training_steps=None, validation_steps=None,
                      weight_name=None, data_augmentation=True, keep_training=False):
         "Function to run training with data augmentation"
-        if data_augmentation:
-            co_tx = tx.Compose([tx.RandomAffine(rotation_range=(-15,15),
-                                                translation_range=(0.1,0.1),
-                                                shear_range=(-10,10),
-                                                zoom_range=(0.65,1.35),
-                                                turn_off_frequency=5,
-                                                fill_value='min',
-                                                target_fill_mode='constant',
-                                                target_fill_value='min')])
-        else:
-            co_tx = None
+        for n_fold, csv_file in enumerate(self.csv_file):
+            LOGGER.info('Running training for fold {}'.format(n_fold+1))
+            if data_augmentation:
+                co_tx = tx.Compose([tx.RandomAffine(rotation_range=(-15,15),
+                                                    translation_range=(0.1,0.1),
+                                                    shear_range=(-10,10),
+                                                    zoom_range=(0.65,1.35),
+                                                    turn_off_frequency=5,
+                                                    fill_value='min',
+                                                    target_fill_mode='constant',
+                                                    target_fill_value='min')])
+            else:
+                co_tx = None
 
-        dataset = CSVDataset(filepath=self.csv_file,
-                             base_path='',
-                             input_cols=['images'],
-                             target_cols=['masks'],
-                             co_transform=co_tx)
+            dataset = CSVDataset(filepath=csv_file,
+                                 base_path='',
+                                 input_cols=['images'],
+                                 target_cols=['masks'],
+                                 co_transform=co_tx)
 
-        val_data, train_data = dataset.split_by_column('train-test')
+            val_data, train_data = dataset.split_by_column('train-test')
 
-        if training_steps is None:
-            training_steps = math.ceil(len(train_data)/training_bs)
-            validation_steps = math.ceil(len(val_data)/validation_bs)
-        else:
-            training_steps = training_steps
-            validation_steps = validation_steps
+            if training_steps is None:
+                training_steps = math.ceil(len(train_data)/training_bs)
+                validation_steps = math.ceil(len(val_data)/validation_bs)
+            else:
+                training_steps = training_steps
+                validation_steps = validation_steps
 
-        train_loader = DataLoader(train_data, batch_size=training_bs, shuffle=True)
-        val_loader = DataLoader(val_data, batch_size=validation_bs, shuffle=True)
-        if weight_name is None:
-            weight_name = os.path.join(
-                self.work_dir, 'double_feat_per_layer_BCE_augmented.h5')
+            train_loader = DataLoader(train_data, batch_size=training_bs, shuffle=False)
+            val_loader = DataLoader(val_data, batch_size=validation_bs, shuffle=False)
+            if weight_name is None:
+                weight_name = os.path.join(
+                    self.work_dir, 'double_feat_per_layer_BCE_augmented_fold{}.h5'.format(n_fold+1))
 
-        # create model
-        initial_epoch = 0
-        if self.transfer_learning or keep_training:
-            model = unet_lung(pretrained_weights=weight_name)
-        else:
-            model = unet_lung()
+            # create model
+            initial_epoch = 0
+            if self.transfer_learning or keep_training:
+                model = unet_lung(pretrained_weights=weight_name)
+            else:
+                model = unet_lung()
 
-        if keep_training:
-            try:
-                with open(os.path.join(self.work_dir, 'training_history.p'), 'rb') as file_pi:
-                    past_hist = pickle.load(file_pi)
-                initial_epoch = len(past_hist['val_loss'])
-                lr_0 = past_hist['lr'][-1]
-            except FileNotFoundError:
-                LOGGER.info('No training history found. The training will start from epoch 1')
+            if keep_training:
+                try:
+                    with open(os.path.join(self.work_dir, 'training_history_fold{}.p'
+                                           .format(n_fold+1)), 'rb') as file_pi:
+                        past_hist = pickle.load(file_pi)
+                    initial_epoch = len(past_hist['val_loss'])
+                    lr_0 = past_hist['lr'][-1]
+                except FileNotFoundError:
+                    LOGGER.info('No training history found. The training will start from epoch 1')
 
-        if self.transfer_learning:
-            for layer in model.layers[:26]:
-                layer.trainable=False
-            weight_name = os.path.join(
-                self.work_dir, 'double_feat_per_layer_BCE_augmented_tl.h5')
+            if self.transfer_learning:
+                for layer in model.layers[:26]:
+                    layer.trainable=False
+                weight_name = os.path.join(
+                    self.work_dir, 'double_feat_per_layer_BCE_augmented_tl.h5')
 
-        model.compile(optimizer=Adam(lr_0), loss=combined_loss,
-                      metrics=[dice_coefficient])
+            model.compile(optimizer=Adam(lr_0), loss='binary_crossentropy',
+                          metrics=[dice_coefficient])
 
-        callbacks = [cbks.ModelCheckpoint(weight_name, monitor='val_loss',
-                                          save_best_only=True),
-                     cbks.ReduceLROnPlateau(monitor='val_loss', factor=0.1)]
+            callbacks = [cbks.ModelCheckpoint(weight_name, monitor='val_loss',
+                                              save_best_only=True),
+                         cbks.ReduceLROnPlateau(monitor='val_loss', factor=0.1)]
 
-        history = model.fit_generator(
-            generator=iter(train_loader),
-            steps_per_epoch=training_steps,
-            epochs=n_epochs, verbose=1, callbacks=callbacks,
-            shuffle=True,
-            validation_data=iter(val_loader),
-            validation_steps=validation_steps,
-            class_weight=None, max_queue_size=10,
-            workers=1, use_multiprocessing=False, initial_epoch=initial_epoch)
-        if keep_training:
-            for key_val in past_hist.keys():
-                history.history[key_val] =  past_hist[key_val] + history.history[key_val]
-        with open(os.path.join(self.work_dir, 'training_history.p'), 'wb') as file_pi:
-            pickle.dump(history.history, file_pi)
+            history = model.fit_generator(
+                generator=iter(train_loader),
+                steps_per_epoch=training_steps,
+                epochs=n_epochs, verbose=1, callbacks=callbacks,
+                shuffle=True,
+                validation_data=iter(val_loader),
+                validation_steps=validation_steps,
+                class_weight=None, max_queue_size=10,
+                workers=1, use_multiprocessing=False, initial_epoch=initial_epoch)
+            if keep_training:
+                for key_val in past_hist.keys():
+                    history.history[key_val] =  past_hist[key_val] + history.history[key_val]
+            with open(os.path.join(self.work_dir, 'training_history_fold{}.p'
+                                   .format(n_fold+1)), 'wb') as file_pi:
+                pickle.dump(history.history, file_pi)
