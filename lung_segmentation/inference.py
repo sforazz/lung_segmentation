@@ -6,7 +6,7 @@ import nrrd
 import numpy as np
 from skimage.transform import resize
 from lung_segmentation.utils import (binarization, dice_calculation,
-                                     violin_box_plot, cluster_correction,
+                                     violin_box_plot, run_cluster_correction,
                                      run_hd, batch_processing)
 from lung_segmentation.models import unet_lung
 from lung_segmentation.base import LungSegmentationBase
@@ -65,9 +65,13 @@ class LungSegmentationInference(LungSegmentationBase):
         predictions = np.asarray(predictions, dtype=np.float32)
         self.prediction = np.mean(predictions, axis=0)
 
-    def save_inference(self, min_extent=10000):
+    def save_inference(self, min_extent=10000, cluster_correction=True):
         "Function to save the segmented masks"
         prediction = self.prediction
+        if cluster_correction:
+            binarize = False
+        else:
+            binarize = True
         z0 = 0
         for i, image in enumerate(self.image_info):
             try:
@@ -80,12 +84,13 @@ class LungSegmentationInference(LungSegmentationBase):
                 im = prediction[z0:z0+(slices*patches), :, :, 0]
                 final_prediction = self.inference_reshaping(
                     im, patches, slices, resampled_image_dim, indexes, deltas,
-                    original_image_dim, binarize=False)
+                    original_image_dim, binarize=binarize)
                 outname = image.split('_resampled')[0]+'_lung_segmented.nrrd'
                 reference = image.split('_resampled')[0]+'.nrrd'
                 _, hd = nrrd.read(reference)
                 nrrd.write(outname, final_prediction, header=hd)
-                outname = cluster_correction(outname, 0.2, min_extent)
+                if cluster_correction:
+                    outname = run_cluster_correction(outname, 0.2, min_extent)
                 self.predicted_images.append(outname)
                 z0 = z0+(slices*patches)
             except:
@@ -130,6 +135,7 @@ class LungSegmentationInference(LungSegmentationBase):
         all_dsc = []
         all_hd = []
         all_hd_100 = []
+        evaluated = []
         for i, predicted in enumerate(self.predicted_images):
             gt = self.preprocessed_masks[i]
             dsc = dice_calculation(gt, predicted)
@@ -139,6 +145,7 @@ class LungSegmentationInference(LungSegmentationBase):
                 all_hd.append(hd_95)
                 all_hd_100.append(hd_100)
                 all_dsc.append(dsc)
+                evaluated.append(predicted)
             else:
                 LOGGER.info('Evaluation metrics cannot be calculated for image {}.'
                             ' Probably the reference and the predicted image have '
@@ -160,9 +167,13 @@ class LungSegmentationInference(LungSegmentationBase):
         LOGGER.info('HD_max 75th percentile: %s', np.percentile(all_hd_100, 75))
         LOGGER.info('Max DSC: %s', np.max(all_dsc))
         LOGGER.info('Min DSC: %f', np.min(all_dsc))
-        LOGGER.info('Image with minumum DSC: %s',
-                    self.predicted_images[np.where(np.asarray(all_dsc)==np.min(all_dsc))[0][0]])
         LOGGER.info('Max HD_95: %f', np.max(all_hd))
         LOGGER.info('Min HD_95: %f', np.min(all_hd))
         LOGGER.info('Max HD_max: %f', np.max(all_hd_100))
         LOGGER.info('Min HD_max: %f', np.min(all_hd_100))
+        LOGGER.info('Image with minumum DSC: %s',
+                    evaluated[np.where(np.asarray(all_dsc)==np.min(all_dsc))[0][0]])
+        LOGGER.info('Image with maximum HD_95: %s',
+                    evaluated[np.where(np.asarray(all_hd)==np.max(all_hd))[0][0]])
+        LOGGER.info('Image with maximum HD_max: %s',
+                    evaluated[np.where(np.asarray(all_hd_100)==np.max(all_hd_100))[0][0]])

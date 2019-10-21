@@ -70,13 +70,14 @@ class LungSegmentationTraining(LungSegmentationBase):
         "Function to create the tensors used for training the CNN"
         return LungSegmentationBase.create_tensors(self, patch_size=patch_size, save2npy=save2npy)
 
-    def data_split(self, additional_dataset=[], delete_existing=True,
+    def data_split(self, additional_dataset=[], delete_existing=False,
                    test_percentage=0.2, fold=5):
         "Function to split the whole dataset into training and validation"
         self.csv_file = sorted(glob.glob(os.path.join(self.work_dir, 'image_filemap_fold*.csv')))
         if len(self.csv_file) != fold or delete_existing:
-#         if not os.path.isfile(os.path.join(self.work_dir, 'image_filemap.csv')) or delete_existing:
-#             self.csv_file = os.path.join(self.work_dir, 'image_filemap.csv')
+            for csv_f in self.csv_file:
+                os.remove(csv_f)
+            self.csv_file = []
             w_dirs = [self.work_dir] + additional_dataset
             LOGGER.info('Splitting the dataset into training ({0}%) and validation ({1}%).'
                         .format((100-test_percentage*100), test_percentage*100))
@@ -137,10 +138,10 @@ class LungSegmentationTraining(LungSegmentationBase):
         for n_fold, csv_file in enumerate(self.csv_file):
             LOGGER.info('Running training for fold {}'.format(n_fold+1))
             if data_augmentation:
-                co_tx = tx.Compose([tx.RandomAffine(rotation_range=(-15,15),
-                                                    translation_range=(0.1,0.1),
-                                                    shear_range=(-10,10),
-                                                    zoom_range=(0.65,1.35),
+                co_tx = tx.Compose([tx.RandomAffine(rotation_range=(-35,35),
+                                                    translation_range=(0.4,0.4),
+                                                    shear_range=(-30,30),
+                                                    zoom_range=(0.45,1.55),
                                                     turn_off_frequency=5,
                                                     fill_value='min',
                                                     target_fill_mode='constant',
@@ -187,10 +188,12 @@ class LungSegmentationTraining(LungSegmentationBase):
                     LOGGER.info('No training history found. The training will start from epoch 1')
 
             if self.transfer_learning:
-                for layer in model.layers[:26]:
+                weight_name_0 = weight_name
+                for layer in model.layers[:25]:
                     layer.trainable=False
                 weight_name = os.path.join(
-                    self.work_dir, 'double_feat_per_layer_BCE_augmented_tl.h5')
+                    self.work_dir, 'double_feat_per_layer_BCE_augmented_tl_fold{}.h5'
+                    .format(n_fold+1))
 
             model.compile(optimizer=Adam(lr_0), loss='binary_crossentropy',
                           metrics=[dice_coefficient])
@@ -214,3 +217,7 @@ class LungSegmentationTraining(LungSegmentationBase):
             with open(os.path.join(self.work_dir, 'training_history_fold{}.p'
                                    .format(n_fold+1)), 'wb') as file_pi:
                 pickle.dump(history.history, file_pi)
+            if self.transfer_learning:
+                weight_name = weight_name_0
+            else:
+                weight_name = None

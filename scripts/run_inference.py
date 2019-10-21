@@ -16,11 +16,11 @@ if __name__ == "__main__":
                         help=('Path that has to be appended to all the folders in the input_file.'))
     PARSER.add_argument('--work_dir', '-w', type=str,
                         help=('Directory where to store the results.'))
-    PARSER.add_argument('--min-extent', type=int, default=400,
+    PARSER.add_argument('--min-extent', type=int, default=350,
                         help=('Minimum lung extension (in voxels) that will be used to '
                               'run the final correction after the inference. For mouse acquired '
-                              'with clinical CT, 400 should be enough, while for micro-CT or human '
-                              'date this should be set to 30000-40000. Default is 400.'))
+                              'with clinical CT, 350 should be enough, while for micro-CT or human '
+                              'date this should be set to 30000-40000. Default is 350.'))
     PARSER.add_argument('--dcm-check', '-dc', action='store_true',
                         help=('Whether or not to carefully check the DICOM header. '
                               'This check is based on our data and might too stringent for other'
@@ -35,6 +35,13 @@ if __name__ == "__main__":
                         help=('Path to the CNN weights to be used for the inference '
                               ' More than one weight can be used, in that case the average '
                               'prediction will be returned.'))
+    PARSER.add_argument('--cluster-correction', '-cc', action='store_true',
+                        help=('Whether or not to apply cluster correction to the final segmented '
+                              'image. This should be turned on when segmenting human or high res '
+                              'mouse data. If not provided, the segmented mask will be thresholded '
+                              'based on the Otsu threshold. If provided, take also a look to the '
+                              '--min-extent argument since it is used to choose the cluster dimension.'
+                              'Default is False.'))
 
     ARGS = PARSER.parse_args()
 
@@ -57,7 +64,7 @@ if __name__ == "__main__":
     INFERENCE.preprocessing(new_spacing=NEW_SPACING)
     INFERENCE.create_tensors()
     INFERENCE.run_inference(weights=ARGS.weights)
-    INFERENCE.save_inference(min_extent=ARGS.min_extent)
+    INFERENCE.save_inference(min_extent=ARGS.min_extent, cluster_correction=ARGS.cluster_correction)
     INFERENCE.run_evaluation()
 
 print('Done!')

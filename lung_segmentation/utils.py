@@ -418,7 +418,7 @@ def violin_box_plot(to_plot, outname):
     plot.close()
 
 
-def cluster_correction(image, th=0.5, min_extent=10000):
+def run_cluster_correction(image, th=0.5, min_extent=10000):
 
     out_nii = image.split('.nrrd')[0]+'.nii.gz'
     out_image = out_nii.split('.nii.gz')[0]+'_cc.nii.gz'
