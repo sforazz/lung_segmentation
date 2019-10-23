@@ -62,7 +62,7 @@ class LungSegmentationInference(LungSegmentationBase):
             model.load_weights(weight)
             predictions.append(model.predict(test_set))
 
-        predictions = np.asarray(predictions, dtype=np.float32)
+        predictions = np.asarray(predictions, dtype=np.float16)
         self.prediction = np.mean(predictions, axis=0)
 
     def save_inference(self, min_extent=10000, cluster_correction=True):

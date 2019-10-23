@@ -40,7 +40,12 @@ if __name__ == "__main__":
                               'image. This should be turned on when segmenting human or high res '
                               'mouse data. If not provided, the segmented mask will be thresholded '
                               'based on the Otsu threshold. If provided, take also a look to the '
-                              '--min-extent argument since it is used to choose the cluster dimension.'
+                              '--min-extent argument since it is used to choose the cluster '
+                              'dimension. Default is False.'))
+    PARSER.add_argument('--evaluate', action='store_true',
+                        help=('If ground truth lung masks are available, the result of the '
+                              'segmentation can be tested against them. In this case, both '
+                              'Dice score and Hausdorff distance will be calculated. '
                               'Default is False.'))
 
     ARGS = PARSER.parse_args()
@@ -65,6 +70,7 @@ if __name__ == "__main__":
     INFERENCE.create_tensors()
     INFERENCE.run_inference(weights=ARGS.weights)
     INFERENCE.save_inference(min_extent=ARGS.min_extent, cluster_correction=ARGS.cluster_correction)
-    INFERENCE.run_evaluation()
+    if ARGS.evaluate:
+        INFERENCE.run_evaluation()
 
 print('Done!')

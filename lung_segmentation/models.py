@@ -3,7 +3,7 @@ from keras.layers import *
 from keras.optimizers import *
 
 
-def unet_lung(pretrained_weights = None, input_size = (96,96,1), add_dropout=False, drop_rate=0.8):
+def unet_lung(pretrained_weights = None, input_size = (96,96,1), add_dropout=False, drop_rate=0.5):
 
     inputs = Input(input_size)
     conv1 = Conv2D(48, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
