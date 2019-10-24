@@ -95,6 +95,9 @@ class LungSegmentationBase():
                                          deep_check=self.deep_check)
             if filename:
                 LOGGER.info('Converting DICOM data to NRRD.')
+                if os.path.isfile(os.path.join(self.work_dir, 'image_info.p')):
+                    with open(os.path.join(self.work_dir, 'image_info.p'), 'rb') as fp:
+                        self.image_info = pickle.load(fp)
                 converter = DicomConverter(filename, clean=True,
                                            bin_path=os.environ['bin_path'])
                 converted_data = converter.convert(convert_to='nrrd',
@@ -149,8 +152,8 @@ class LungSegmentationBase():
                     fname = os.path.split(filename)[0]
                     f.write(fname+'\n')
 
-        with open(os.path.join(self.work_dir, 'image_info.p'), 'wb') as fp:
-            pickle.dump(self.image_info, fp, protocol=pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(self.work_dir, 'image_info.p'), 'wb') as fp:
+                    pickle.dump(self.image_info, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     def create_tensors(self, patch_size=(96, 96), save2npy=True):
         "Function to create the 2D tensor from the 3D images"
