@@ -176,7 +176,7 @@ class LungSegmentationBase():
                     im_array, info_dict = load_data_2D(
                         '', '', array=image[:, :, n_slice], img_size=im_size,
                         patch_size=patch_size, binarize=False, normalization=True,
-                        prediction=self.testing)
+                        prediction=self.testing, mb=[])
                     if self.preprocessed_masks and not self.testing:
                         mask_array, _ = load_data_2D(
                             '', '', array=mask[:, :, n_slice], img_size=im_size,

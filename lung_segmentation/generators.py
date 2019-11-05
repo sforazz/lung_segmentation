@@ -32,7 +32,7 @@ def load_data_2D(data_dir, data_type, data_list=[], array=None, mb=[], bs=None, 
         else:
             data_list = sorted(glob.glob(os.path.join(data_dir, data_type)))
 
-    
+
     patch_width = patch_size[0]
     patch_height = patch_size[1]
 
