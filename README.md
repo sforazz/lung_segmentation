@@ -1,14 +1,15 @@
 # Introduction
-This repository contains a deep learning application to segment lungs from CT images. The Convolutional Neural Network used to this task has been trained on 1500 mouse images (with different level of lung fibrosis) acquired with clinical CT, achieving very good results in 2 independent test sets (median [Dice score](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient) above 0.98 and median [Hausdorff distance](https://en.wikipedia.org/wiki/Hausdorff_distance) below 1 mm). It has also been tested in micro-CT mouse images where, without any additional training, it got a Dice score of 0.83. Finally, it has been applied to human lung segmentation as well after re-training using a transfer learning approach (on 10 subjects).
+This repository contains a deep learning application to segment lungs from CT images. The Convolutional Neural Network used to this task has been trained on 1500 mouse images (with different level of lung fibrosis) acquired with clinical CT, achieving very good results in 2 independent test sets (median [Dice score](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient) above 0.96 and median [Hausdorff distance](https://en.wikipedia.org/wiki/Hausdorff_distance) below 2 mm). It has been applied to segment lungs from high resolution mouse CT images and human CTs as well after re-training using a transfer learning approach (on 35 mice and 9 subjects, respectively).
 However, the application provided here is only for clinical CT mouse lung segmentation, but it will be expanded soon to include the other 2 modalities.
 
 # Installation
-Currently, this application is only supported for Linux (Ubuntu) operative system, because it needs some executables that are build on this OP.
+Currently, this application is only supported for Linux (Ubuntu) operative system, because it needs some executables that are build on this OS.
 To install it, follow the following steps:
 - Clone or download the repository.
 - Open a terminal and cd into it (`cd lung_segmentation`, if the repository is in the current directory)
 - (Optional) create a python virtual environment (for example `virtualenv venv`). For more information about virtualenv please refer to [this web page](https://virtualenv.pypa.io/en/latest/)
 - (Optional) activate the just created virtualenv `source venv/bin/activate`
+- Open the setup.py script and uncomment the version of tensorflow you want to use (cpu or gpu, based on your system). Then save and close the file.
 - Type: `python setup.py install`
 - cd into the scripts folder (`cd scripts`). Please make sure that your virtualenv is still active when you changed directory.
 
