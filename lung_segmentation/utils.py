@@ -119,10 +119,10 @@ def get_files(url, location, file, ext='.tar.gz'):
     print(r.status_code)
     print(r.headers['content-type'])
     print(r.encoding)
-    
-    return os.path.join(location, 'weights.tar.gz')
 
- 
+    return os.path.join(location, file+ext)
+
+
 def untar(fname):
 
     if (fname.endswith("tar.gz")):
@@ -132,7 +132,7 @@ def untar(fname):
         print("Extracted in Current Directory")
     else:
         print("Not a tar.gz file: {}".format(fname))
-    
+
 
 def create_log(log_dir):
 

@@ -1,7 +1,8 @@
 "Simple script to run segmentation inference"
 import os
 import argparse
-from lung_segmentation.utils import create_log
+import glob
+from lung_segmentation.utils import create_log, untar, get_files
 from lung_segmentation.inference import LungSegmentationInference
 
 
@@ -51,7 +52,10 @@ if __name__ == "__main__":
     ARGS = PARSER.parse_args()
 
     PARENT_DIR = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
-    os.environ['bin_path'] = os.path.join(PARENT_DIR, 'bin/')
+    BIN_DIR = os.path.join(PARENT_DIR, 'bin/')
+    WEIGHTS_DIR = os.path.join(PARENT_DIR, 'weights/')
+
+    os.environ['bin_path'] = BIN_DIR
 
     LOG_DIR = os.path.join(ARGS.work_dir, 'logs')
     if not os.path.isdir(LOG_DIR):
@@ -63,6 +67,57 @@ if __name__ == "__main__":
         NEW_SPACING = (ARGS.spacing[0], ARGS.spacing[1], ARGS.spacing[2])
     else:
         NEW_SPACING = None
+
+    if ARGS.weights is None:
+        if not os.path.isdir(WEIGHTS_DIR):
+            LOGGER.info('No pre-trained network weights, I will try to download them.')
+            try:
+                url = 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/weights.tar.gz' 
+                tar_file = get_files(url, PARENT_DIR, 'weights')
+                untar(tar_file)
+            except:
+                LOGGER.error('Pre-trained weights cannot be downloaded. Please check '
+                             'your connection and retry or download them manually '
+                             'from the repository.')
+                raise Exception('Unable to download network weights!')
+        else:
+            LOGGER.info('Pre-trained network weights found in {}'.format(WEIGHTS_DIR))
+
+        weights = [w for w in sorted(glob.glob(os.path.join(WEIGHTS_DIR, '*.h5')))]
+        downloaded = True
+    else:
+        weights = ARGS.weights
+        downloaded = False
+
+    if len(weights) == 5 and downloaded:
+        LOGGER.info('{0} weights files found in {1}. Five folds inference will be calculated.'
+                    .format(len(weights), WEIGHTS_DIR))
+    elif len(weights) < 5 and downloaded:
+        LOGGER.warning('Only {0} weights files found in {1}. There should be 5. Please check '
+                       'the repository and download them again in order to run the five folds '
+                       'inference will be calculated. The segmentation will still be calculated '
+                       'using {0}-folds cross validation but the results might be sub-optimal.'
+                       .format(len(weights), WEIGHTS_DIR))
+    elif len(weights) > 5 and downloaded:
+        LOGGER.error('{} weights file found in {1}. This is not possible since the model was '
+                     'trained using a 5-folds cross validation approach. Please check the '
+                     'repository and remove all the unknown weights files.'
+                     .format(len(weights), WEIGHTS_DIR))
+
+    if not os.path.isdir(BIN_DIR):
+        LOGGER.info('No directory containing the binary executables found. '
+                    'I will try to download it from the repository.')
+        try:
+            url = 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/bin.tar.gz' 
+            tar_file = get_files(url, PARENT_DIR, 'bin')
+            untar(tar_file)
+        except:
+            LOGGER.error('Binary files cannot be downloaded. Please check '
+                         'your connection and retry or download them manually '
+                         'from the repository.')
+            raise Exception('Unable to download binary files!')
+    else:
+        LOGGER.info('Binary executables found in {}'.format(BIN_DIR))
 
     INFERENCE = LungSegmentationInference(ARGS.input_path, ARGS.work_dir, deep_check=ARGS.dcm_check)
     INFERENCE.get_data(root_path=ARGS.root_path)
