@@ -94,55 +94,53 @@ if __name__ == "__main__":
         if not os.path.isdir(WEIGHTS_DIR):
             LOGGER.info('No pre-trained network weights, I will try to download them.')
             try:
-                url = WEIGHTS_URL
-                tar_file = get_files(url, PARENT_DIR, 'weights')
-                untar(tar_file)
+                TAR_FILE = get_files(WEIGHTS_URL, PARENT_DIR, 'weights')
+                untar(TAR_FILE)
             except:
                 LOGGER.error('Pre-trained weights cannot be downloaded. Please check '
                              'your connection and retry or download them manually '
                              'from the repository.')
                 raise Exception('Unable to download network weights!')
         else:
-            LOGGER.info('Pre-trained network weights found in {}'.format(WEIGHTS_DIR))
+            LOGGER.info('Pre-trained network weights found in %s', WEIGHTS_DIR)
 
         WEIGHTS = [w for w in sorted(glob.glob(os.path.join(WEIGHTS_DIR, '*.h5')))]
-        downloaded = True
+        DOWNLOADED = True
     elif ARGS.weights is not None:
         WEIGHTS = ARGS.weights
-        downloaded = False
+        DOWNLOADED = False
     else:
-        raise Exception('No weights can be found')
         LOGGER.error('If you choose to do not use any configuration file, '
                      'then you must provide the path to the weights to use for '
                      'inference!')
-    if len(WEIGHTS) == 5 and downloaded:
-        LOGGER.info('{0} weights files found in {1}. Five folds inference will be calculated.'
-                    .format(len(WEIGHTS), WEIGHTS_DIR))
-    elif len(WEIGHTS) > 0 and len(WEIGHTS) < 5 and downloaded:
-        LOGGER.warning('Only {0} weights files found in {1}. There should be 5. Please check '
+        raise Exception('No weights can be found')
+    if len(WEIGHTS) == 5 and DOWNLOADED:
+        LOGGER.info('%s weights files found in %s. Five folds inference will be calculated.',
+                    len(WEIGHTS), WEIGHTS_DIR)
+    elif WEIGHTS and len(WEIGHTS) < 5 and DOWNLOADED:
+        LOGGER.warning('Only %s weights files found in %s. There should be 5. Please check '
                        'the repository and download them again in order to run the five folds '
                        'inference will be calculated. The segmentation will still be calculated '
-                       'using {0}-folds cross validation but the results might be sub-optimal.'
-                       .format(len(WEIGHTS), WEIGHTS_DIR))
-    elif len(WEIGHTS) > 5 and downloaded:
+                       'using %s-folds cross validation but the results might be sub-optimal.',
+                       len(WEIGHTS), WEIGHTS_DIR, len(WEIGHTS))
+    elif len(WEIGHTS) > 5 and DOWNLOADED:
         LOGGER.error('%s weights file found in %s. This is not possible since the model was '
                      'trained using a 5-folds cross validation approach. Please check the '
                      'repository and remove all the unknown weights files.',
                      len(WEIGHTS), WEIGHTS_DIR)
     elif not WEIGHTS:
-        raise Exception('No weight files found!')
         LOGGER.error('No weights file found in %s. Probably something went wrong '
                      'during the download. Try to download them directly from %s '
                      'and store them in the "weights" folder within the '
                      'lung_segmentation directory.', WEIGHTS_DIR, WEIGHTS_URL)
+        raise Exception('No weight files found!')
 
     if not os.path.isdir(BIN_DIR):
         LOGGER.info('No directory containing the binary executables found. '
                     'I will try to download it from the repository.')
         try:
-            url = BIN_URL 
-            tar_file = get_files(url, PARENT_DIR, 'bin')
-            untar(tar_file)
+            TAR_FILE = get_files(BIN_URL, PARENT_DIR, 'bin')
+            untar(TAR_FILE)
         except:
             LOGGER.error('Binary files cannot be downloaded. Please check '
                          'your connection and retry or download them manually '
