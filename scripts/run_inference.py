@@ -20,7 +20,7 @@ if __name__ == "__main__":
     PARSER.add_argument('--work_dir', '-w', type=str,
                         help=('Directory where to store the results.'))
     PARSER.add_argument('--configuration', '-c', type=str,
-                        choices=['standard', 'highres', 'human', None], default='standard',
+                        choices=['standard', 'highres', 'human', 'None'], default='standard',
                         help=('Configuation to use based on your data. See documentation for '
                               'more help. Default is "standard".'))
     PARSER.add_argument('--min-extent', type=int, default=350,
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     WEIGHTS_DIR = os.path.join(PARENT_DIR, 'weights/')
     BIN_URL = 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/bin.tar.gz'
 
-    if ARGS.configuration is None:
+    if ARGS.configuration == 'None':
         DEEP_CHECK = ARGS.dcm_check
         NEW_SPACING = ARGS.spacing
         MIN_EXTENT = ARGS.min_extent

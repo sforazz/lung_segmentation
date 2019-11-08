@@ -1,4 +1,4 @@
-"Configuation file"
+"Configuration file"
 
 
 STANDARD_CONFIG = {
@@ -6,7 +6,8 @@ STANDARD_CONFIG = {
     'cluster_correction': False,
     'min_extent': 350,
     'dicom_check': True,
-    'weights_url': 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/standard_weights.tar.gz'}
+    'weights_url': ('https://angiogenesis.dkfz.de/oncoexpress'
+                    '/software/delineation/bin/weights.tar.gz')}
 
 
 HIGH_RES_CONFIG = {
@@ -14,7 +15,8 @@ HIGH_RES_CONFIG = {
     'cluster_correction': True,
     'min_extent': 100000,
     'dicom_check': False,
-    'weights_url': 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/highres_weights.tar.gz'}
+    'weights_url': ('https://angiogenesis.dkfz.de/oncoexpress'
+                    '/software/delineation/bin/highres_weights.tar.gz')}
 
 
 HUMAN_CONFIG = {
@@ -22,4 +24,5 @@ HUMAN_CONFIG = {
     'cluster_correction': True,
     'min_extent': 300000,
     'dicom_check': False,
-    'weights_url': 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/human_weights.tar.gz'}
+    'weights_url': ('https://angiogenesis.dkfz.de/oncoexpress'
+                    '/software/delineation/bin/human_weights.tar.gz')}
