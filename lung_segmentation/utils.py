@@ -125,9 +125,10 @@ def get_files(url, location, file, ext='.tar.gz'):
 
 def untar(fname):
 
+    untar_dir = os.path.split(fname)[0]
     if (fname.endswith("tar.gz")):
         tar = tarfile.open(fname)
-        tar.extractall()
+        tar.extractall(path=untar_dir)
         tar.close()
         print("Extracted in Current Directory")
     else:
