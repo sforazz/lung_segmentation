@@ -48,6 +48,10 @@ window = sg.Window('SIENA', default_element_size=(40, 1)).Layout(layout)
 button, values = window.Read()
 # sg.Popup(button, values)
 if values[0] == 'Standard (mouse)':
+    frame_layout = [
+        [sg.Checkbox('Cluster correction', change_submits = True, enable_events=True, default='0',key='print_output')],
+        [sg.InputText(('Minimum extent'), size=(20, 3)),      
+         sg.Slider(range=(1, 1000), orientation='h', size=(34, 20), default_value=350)]]
     layout = [
         [sg.Text('Prepareing the inference for standard mouse CT images', size=(30, 1), font=("Helvetica", 25))],
         [sg.Text('Here is some text.... and a place to enter text')],
@@ -56,8 +60,7 @@ if values[0] == 'Standard (mouse)':
         [sg.Radio('My first Radio!     ', "RADIO1", default=True), sg.Radio('My second Radio!', "RADIO1")],      
         [sg.Multiline(default_text='This is the default Text should you decide not to type anything', size=(35, 3)),      
          sg.Multiline(default_text='A second multi-line', size=(35, 3))],      
-        [sg.InputText(('Minimum extent'), size=(20, 3)),      
-         sg.Slider(range=(1, 1000), orientation='h', size=(34, 20), default_value=350)],    
+        [sg.Frame('Nataveni', frame_layout, font='Any 12', title_color='black')],    
         [sg.Text('_'  * 80)],      
         [sg.Text('Choose A Folder', size=(35, 1))],      
         [sg.Text('Your Folder', size=(15, 1), auto_size_text=False, justification='right'),      
