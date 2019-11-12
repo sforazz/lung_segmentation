@@ -1,116 +1,11 @@
 #!/usr/bin/env python3.6
 import os
 import glob
-import PySimpleGUI as sg
-from lung_segmentation.utils import create_log, untar, get_files
+from lung_segmentation.utils import create_log, untar, get_files, build_gui
 from lung_segmentation.inference import LungSegmentationInference
-from lung_segmentation.configuration import (
-    STANDARD_CONFIG, HIGH_RES_CONFIG, HUMAN_CONFIG, NONE_CONFIG)
 
-sg.ChangeLookAndFeel('GreenTan')
 
-layout = [
-    [sg.Text('Lung Segmentation using CNN', size=(30, 1), font=("Helvetica", 25))],
-    [sg.Listbox(values=('Low resolution mouse', 'High resolution mouse', 'Human', 'None'),
-                size=(30, 3), default_values='Low resolution mouse')],
-    [sg.Submit(), sg.Cancel()]
-]
-
-window = sg.Window('SIENA', default_element_size=(40, 1)).Layout(layout)
-button, values = window.Read()
-
-if values[0][0] == 'Low resolution mouse':
-    CONFIG = STANDARD_CONFIG
-    CC_RANGE = (100, 1000)
-    APP_NAME = 'Lung segmentation inference for low resolution mouse CT images'
-elif values[0][0] == 'High resolution mouse':
-    CONFIG = HIGH_RES_CONFIG
-    CC_RANGE = (50000, 500000)
-    APP_NAME = 'Lung segmentation inference for high resolution mouse CT images'
-elif values[0][0] == 'Human':
-    CONFIG = HUMAN_CONFIG
-    CC_RANGE = (50000, 500000)
-    APP_NAME = 'Lung segmentation inference for human CT images'
-else:
-    CONFIG = NONE_CONFIG
-    CC_RANGE = (0, 500000)
-    APP_NAME = 'Lung segmentation inference using custom settings'
-
-DICOM_CHECK = CONFIG['dicom_check']
-NEW_SPACING = CONFIG['spacing']
-MIN_EXTENT = CONFIG['min_extent']
-CLUSTER_CORRECTION = CONFIG['cluster_correction']
-WEIGHTS_URL = CONFIG['weights_url']
-
-post_proc_layout = [
-    [sg.Radio('Cluster correction', 'pp', default=CLUSTER_CORRECTION, key='cluster_correction'),
-     sg.InputText(('Minimum extent'), size=(20, 3)),
-     sg.Slider(range=CC_RANGE, orientation='h', size=(34, 20), default_value=MIN_EXTENT,
-               key='min_extent')],
-    [sg.Radio('Otsu binarizazion', 'pp', default=not(CLUSTER_CORRECTION))],
-    [sg.Checkbox('Run segmentation evaluation', default=False,
-                 tooltip='',
-                 key='evaluate')]]
-input_layout = [
-    [sg.Text('Input path', size=(15, 1),
-             auto_size_text=False, justification='right'),
-     sg.InputText('', key='in_path'), sg.FolderBrowse()],
-    [sg.Text('Root path', size=(15, 1), auto_size_text=False, justification='right'),
-     sg.InputText('', key='root_path'), sg.FolderBrowse()],
-    [sg.Text('Working directory', size=(15, 1), auto_size_text=False, justification='right'),
-     sg.InputText('', key='work_dir'), sg.FolderBrowse()]
-    ]
-if WEIGHTS_URL is None:
-    input_layout.append(
-        [sg.Text('Weights directory', size=(15, 1), auto_size_text=False,
-                 justification='right'),
-         sg.InputText('', key='weights_dir'), sg.FolderBrowse()])
-
-colx = [[sg.Text('Spacing X')],
-        [sg.Slider(range=(0.0, 5.0), orientation='v', resolution=0.05, size=(5, 20),
-                   default_value=NEW_SPACING[0],
-                   tooltip='New resolution (in mm) along x direction.',
-                   key='space_x')]]
-coly = [[sg.Text('Spacing Y')],
-        [sg.Slider(range=(0.0, 5.0), orientation='v', resolution=0.05, size=(5, 20),
-                   default_value=NEW_SPACING[1],
-                   tooltip='New resolution (in mm) along y direction.',
-                   key='space_y')]]
-colz = [[sg.Text('Spacing Z')],
-        [sg.Slider(range=(0.0, 5.0), orientation='v', resolution=0.05, size=(5, 20),
-                   default_value=NEW_SPACING[2],
-                   tooltip='New resolution (in mm) along z direction.',
-                   key='space_z')]]
-preproc_layout = [
-    [sg.Checkbox('DICOM check', default=DICOM_CHECK,
-                 tooltip='Whether or not to carefully check the DICOM header. \n'
-                         'This check is based on our low resolution mouse data \n'
-                         'and might be too stringent for data coming from \n'
-                         'different sites and/or acquired with different resolution.\n'
-                         'If the last is the case, then turn this check off.',
-                 key='dcm_check')],
-    [sg.Text('New spacing (for resampling)',
-             tooltip='Here you can specify the voxel size (in mm) \n'
-                     'that will be used to resample the image before\n'
-                     'running the inference. The network has been trained\n'
-                     'using images with a defined resolution. The default\n'
-                     'values for the resolution have been stored here, \n'
-                     'however, if the network was retrained with different\n'
-                     'resolution, you can simply change it here.')],
-    [sg.Column(colx), sg.Column(coly), sg.Column(colz)]]
-
-layout = [
-    [sg.Text(APP_NAME, size=(50, 1),
-             font=("Helvetica", 25))],
-    [sg.Frame('Input and output specs', input_layout, font='Any 12', title_color='black')],
-    [sg.Text('_'  * 80)],
-    [sg.Frame('Pre-processing specs', preproc_layout, font='Any 12', title_color='black')],
-    [sg.Text('_'  * 80)],
-    [sg.Frame('Post-processing specs', post_proc_layout, font='Any 12', title_color='black')],
-    [sg.Submit(), sg.Cancel()]]
-window = sg.Window('SIENA2', default_element_size=(50, 1)).Layout(layout)
-button, VALUES = window.Read()
-# sg.Popup(button, values)
+VALUES = build_gui()
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.split(__file__)[0], os.pardir))
 BIN_DIR = os.path.join(PARENT_DIR, 'bin/')
@@ -125,13 +20,14 @@ MIN_EXTENT = VALUES['min_extent']
 CLUSTER_CORRECTION = VALUES['cluster_correction']
 DICOM_CHECK = VALUES['dcm_check']
 EVALUATE = VALUES['evaluate']
+WEIGHTS_URL = VALUES['weights_url']
 
 try:
     weights_dir = VALUES['weights_dir']
     weights = [w for w in sorted(glob.glob(os.path.join(weights_dir, '*.h5')))]
     if not weights:
         weights = None
-except:
+except KeyError:
     weights = None
 
 os.environ['bin_path'] = BIN_DIR

@@ -1,6 +1,7 @@
 import requests
 import tarfile
 import os
+import sys
 from datetime import datetime
 import logging
 import shutil
@@ -11,6 +12,7 @@ import pydicom
 import nrrd
 import numpy as np
 import nibabel as nib
+import PySimpleGUI as sg
 from skimage.filters.thresholding import threshold_otsu
 from skimage.transform import resize
 import pandas as pd
@@ -18,6 +20,8 @@ import matplotlib.pyplot as plot
 import matplotlib.cbook as cbook
 import subprocess as sp
 from medpy.metric.binary import hd, hd95, dc
+from lung_segmentation.configuration import (
+        STANDARD_CONFIG, HIGH_RES_CONFIG, HUMAN_CONFIG, NONE_CONFIG)
 
 
 ALLOWED_EXT = ['.xlsx', '.csv']
@@ -126,7 +130,7 @@ def get_files(url, location, file, ext='.tar.gz'):
 def untar(fname):
 
     untar_dir = os.path.split(fname)[0]
-    if (fname.endswith("tar.gz")):
+    if fname.endswith("tar.gz"):
         tar = tarfile.open(fname)
         tar.extractall(path=untar_dir)
         tar.close()
@@ -486,3 +490,139 @@ def run_hd(image1, image2, mode='max'):
     else:
         hd_val = None
     return hd_val
+
+
+def build_gui():
+    "Function to build the GUI for inference"
+    configured = False
+
+    while not configured:
+        disable_dw_weights = False
+        sg.ChangeLookAndFeel('GreenTan')
+
+        layout = [
+            [sg.Text('Lung Segmentation using CNN', size=(30, 1), font=("Helvetica", 25))],
+            [sg.Listbox(values=('Low resolution mouse', 'High resolution mouse', 'Human', 'None'),
+                        size=(30, 3), default_values='Low resolution mouse')],
+            [sg.Submit(), sg.Quit()]
+        ]
+        window = sg.Window('SIENA', default_element_size=(40, 1)).Layout(layout)
+        config_button, values = window.Read()
+        if config_button == 'Quit':
+            sys.exit()
+        else:
+            window.close()
+        if values[0][0] == 'Low resolution mouse':
+            config = STANDARD_CONFIG
+            app_name = 'Lung segmentation inference for low resolution mouse CT images'
+        elif values[0][0] == 'High resolution mouse':
+            config = HIGH_RES_CONFIG
+            app_name = 'Lung segmentation inference for high resolution mouse CT images'
+        elif values[0][0] == 'Human':
+            config = HUMAN_CONFIG
+            app_name = 'Lung segmentation inference for human CT images'
+        else:
+            config = NONE_CONFIG
+            disable_dw_weights = True
+            app_name = 'Lung segmentation inference using custom settings'
+
+        dc_check = config['dicom_check']
+        new_spacing = config['spacing']
+        min_extent = config['min_extent']
+        cluster_correction = config['cluster_correction']
+        weights_url = config['weights_url']
+
+        post_proc_layout = [
+            [sg.Radio('Cluster correction', 'pp', default=cluster_correction,
+                      key='cluster_correction', change_submits = True, enable_events=True),
+             sg.Text('Minimum extent', size=(15, 1), auto_size_text=False, justification='right'),
+             sg.InputText(min_extent, key='min_extent', disabled = not cluster_correction,
+                          size=(15, 10))],
+            [sg.Radio('Otsu binarizazion', 'pp', default=not cluster_correction,
+                      change_submits = True, enable_events=True)],
+            [sg.Checkbox('Run segmentation evaluation', default=False,
+                         tooltip='',
+                         key='evaluate')]]
+        input_layout = [
+            [sg.Text('Input path', size=(15, 1),
+                     auto_size_text=False, justification='right'),
+             sg.InputText('', key='in_path'), sg.FolderBrowse()],
+            [sg.Text('Root path', size=(15, 1), auto_size_text=False, justification='right'),
+             sg.InputText('', key='root_path'), sg.FolderBrowse()],
+            [sg.Text('Working directory', size=(15, 1), auto_size_text=False,
+                     justification='right'),
+             sg.InputText('', key='work_dir'), sg.FolderBrowse()],
+            [sg.Checkbox('Download weights', change_submits = True, enable_events=True,
+                         default=True, key='download_weights', disabled=disable_dw_weights)],
+            [sg.Text('Weights directory', size=(15, 1), auto_size_text=False,
+                     justification='right'),
+             sg.InputText('', disabled = not disable_dw_weights, key='specify_wd_1'),
+             sg.FolderBrowse(disabled = not disable_dw_weights, key='specify_wd_2')]
+            ]
+
+        colx = [[sg.Text('Spacing X')],
+                [sg.Slider(range=(0.0, 5.0), orientation='v', resolution=0.05, size=(5, 20),
+                           default_value=new_spacing[0],
+                           tooltip='New resolution (in mm) along x direction.',
+                           key='space_x')]]
+        coly = [[sg.Text('Spacing Y')],
+                [sg.Slider(range=(0.0, 5.0), orientation='v', resolution=0.05, size=(5, 20),
+                           default_value=new_spacing[1],
+                           tooltip='New resolution (in mm) along y direction.',
+                           key='space_y')]]
+        colz = [[sg.Text('Spacing Z')],
+                [sg.Slider(range=(0.0, 5.0), orientation='v', resolution=0.05, size=(5, 20),
+                           default_value=new_spacing[2],
+                           tooltip='New resolution (in mm) along z direction.',
+                           key='space_z')]]
+        preproc_layout = [
+            [sg.Checkbox('DICOM check', default=dc_check,
+                         tooltip='Whether or not to carefully check the DICOM header. \n'
+                                 'This check is based on our low resolution mouse data \n'
+                                 'and might be too stringent for data coming from \n'
+                                 'different sites and/or acquired with different resolution.\n'
+                                 'If the last is the case, then turn this check off.',
+                         key='dcm_check')],
+            [sg.Text('New spacing (for resampling)',
+                     tooltip='Here you can specify the voxel size (in mm) \n'
+                             'that will be used to resample the image before\n'
+                             'running the inference. The network has been trained\n'
+                             'using images with a defined resolution. The default\n'
+                             'values for the resolution have been stored here, \n'
+                             'however, if the network was retrained with different\n'
+                             'resolution, you can simply change it here.')],
+            [sg.Column(colx), sg.Column(coly), sg.Column(colz)]]
+
+        layout = [
+            [sg.Text(app_name, size=(55, 1), font=("Helvetica", 20))],
+            [sg.Frame('Input and output specs', input_layout, font='Any 12', title_color='black')],
+            [sg.Text('_'  * 80)],
+            [sg.Frame('Pre-processing specs', preproc_layout, font='Any 12', title_color='black')],
+            [sg.Text('_'  * 80)],
+            [sg.Frame('Post-processing specs', post_proc_layout, font='Any 12',
+                      title_color='black')],
+            [sg.Submit(), sg.Quit(), sg.Cancel()]]
+        main_window = sg.Window('SIENA2', default_element_size=(50, 1)).Layout(layout)
+        while True:
+            main_button, values = main_window.Read()
+            if weights_url is not None:
+                if values['download_weights'] and weights_url is not None:
+                    main_window['specify_wd_1'].Update(disabled = True)
+                    main_window['specify_wd_2'].Update(disabled = True)
+                if not values['download_weights'] and weights_url is not None:
+                    main_window['specify_wd_1'].Update(disabled = False)
+                    main_window['specify_wd_2'].Update(disabled = False)
+            if values['cluster_correction']:
+                main_window['min_extent'].Update(disabled = False)
+            if not values['cluster_correction']:
+                main_window['min_extent'].Update(disabled = True)
+            if main_button == 'Quit':
+                sys.exit()
+            elif main_button == 'Cancel':
+                main_window.close()
+                break
+            elif main_button == 'Submit':
+                configured = True
+                break
+    values['weights_url'] = weights_url
+    return values
