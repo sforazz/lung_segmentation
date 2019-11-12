@@ -556,8 +556,8 @@ def build_gui():
                          default=True, key='download_weights', disabled=disable_dw_weights)],
             [sg.Text('Weights directory', size=(15, 1), auto_size_text=False,
                      justification='right'),
-             sg.InputText('', disabled = not disable_dw_weights, key='specify_wd_1'),
-             sg.FolderBrowse(disabled = not disable_dw_weights, key='specify_wd_2')]
+             sg.InputText('', disabled = not disable_dw_weights, key='weights_dir'),
+             sg.FolderBrowse(disabled = not disable_dw_weights, key='weights_dir_2')]
             ]
 
         colx = [[sg.Text('Spacing X')],
@@ -607,11 +607,11 @@ def build_gui():
             main_button, values = main_window.Read()
             if weights_url is not None:
                 if values['download_weights'] and weights_url is not None:
-                    main_window['specify_wd_1'].Update(disabled = True)
-                    main_window['specify_wd_2'].Update(disabled = True)
+                    main_window['weights_dir'].Update(disabled = True)
+                    main_window['weights_dir_2'].Update(disabled = True)
                 if not values['download_weights'] and weights_url is not None:
-                    main_window['specify_wd_1'].Update(disabled = False)
-                    main_window['specify_wd_2'].Update(disabled = False)
+                    main_window['weights_dir'].Update(disabled = False)
+                    main_window['weights_dir_2'].Update(disabled = False)
             if values['cluster_correction']:
                 main_window['min_extent'].Update(disabled = False)
             if not values['cluster_correction']:
