@@ -26,3 +26,11 @@ HUMAN_CONFIG = {
     'dicom_check': False,
     'weights_url': ('https://angiogenesis.dkfz.de/oncoexpress'
                     '/software/delineation/bin/human_weights.tar.gz')}
+
+
+NONE_CONFIG = {
+    'spacing': (0, 0, 0),
+    'cluster_correction': False,
+    'min_extent': 0,
+    'dicom_check': False,
+    'weights_url': None}
