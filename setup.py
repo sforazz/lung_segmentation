@@ -11,9 +11,10 @@ pkgs = ['Keras==2.2.4',
 	'opencv-python==4.1.0.25',
 	'pandas==0.25.0',
 	'xlrd==1.1.0',
-	'medpy==0.4.0']
+	'medpy==0.4.0',
+	'pysimplegui==4.5.0']
 
-# pkgs.append('tensorflow==1.13.1')
+pkgs.append('tensorflow==1.13.1')
 # pkgs.append('tf-nightly-gpu==1.13.0.dev20190129')
 
 setup(name='lung_segmentation',

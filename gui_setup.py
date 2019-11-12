@@ -1,5 +1,6 @@
 "Script to setup the GUI in the Applications (for Linux)"
 import os
+import subprocess as sp
 
 
 HOME_DIR = os.environ['HOME']
@@ -26,6 +27,10 @@ Categories=Application;""".format(APP_DIR))
 with open(os.path.join(HOME_DIR, '.local/share/applications/lung_seg_app.desktop'), 'w') as f:
     f.write(LINUX_TEMPLATE)
 
+cmd = 'chmod +x {}'.format(
+    os.path.join(HOME_DIR,'.local/share/applications/lung_seg_app.desktop'))
+sp.check_output(cmd, shell=True)
+
 GUI_TEMPLATE = (
 """#!/bin/bash
 source {0}
@@ -33,5 +38,8 @@ export PYTHONPATH={1}:$PYTHONPATH
 export LD_LIBRARY_PATH={2}
 python '{1}/scripts/run_inference_gui.py'"""
 .format(VENV, APP_DIR, LIBRARY_PATH))
-with open(os.path.join(APP_DIR, 'scripts', 'run_gui_test.sh'), 'w') as f:
+with open(os.path.join(APP_DIR, 'scripts', 'run_gui.sh'), 'w') as f:
     f.write(GUI_TEMPLATE)
+
+cmd = 'chmod +x {}'.format(os.path.join(APP_DIR, 'scripts', 'run_gui.sh'))
+sp.check_output(cmd, shell=True)
