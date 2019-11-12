@@ -21,7 +21,7 @@ import matplotlib.cbook as cbook
 import subprocess as sp
 from medpy.metric.binary import hd, hd95, dc
 from lung_segmentation.configuration import (
-        STANDARD_CONFIG, HIGH_RES_CONFIG, HUMAN_CONFIG, NONE_CONFIG)
+        STANDARD_CONFIG, HIGH_RES_CONFIG, HUMAN_CONFIG, CUSTOM_CONFIG)
 
 
 ALLOWED_EXT = ['.xlsx', '.csv']
@@ -502,7 +502,9 @@ def build_gui():
 
         layout = [
             [sg.Text('Lung Segmentation using CNN', size=(30, 1), font=("Helvetica", 25))],
-            [sg.Listbox(values=('Low resolution mouse', 'High resolution mouse', 'Human', 'None'),
+            [sg.Text('Please choose a configuration file based on your data:')],
+            [sg.Listbox(values=('Low resolution mouse', 'High resolution mouse', 'Human',
+                                'Custom configuration'),
                         size=(30, 3), default_values='Low resolution mouse')],
             [sg.Submit(), sg.Quit()]
         ]
@@ -522,7 +524,7 @@ def build_gui():
             config = HUMAN_CONFIG
             app_name = 'Lung segmentation inference for human CT images'
         else:
-            config = NONE_CONFIG
+            config = CUSTOM_CONFIG
             disable_dw_weights = True
             app_name = 'Lung segmentation inference using custom settings'
 
@@ -532,31 +534,37 @@ def build_gui():
         cluster_correction = config['cluster_correction']
         weights_url = config['weights_url']
 
-        post_proc_layout = [
-            [sg.Radio('Cluster correction', 'pp', default=cluster_correction,
-                      key='cluster_correction', change_submits = True, enable_events=True),
-             sg.Text('Minimum extent', size=(15, 1), auto_size_text=False, justification='right'),
-             sg.InputText(min_extent, key='min_extent', disabled = not cluster_correction,
-                          size=(15, 10))],
-            [sg.Radio('Otsu binarizazion', 'pp', default=not cluster_correction,
-                      change_submits = True, enable_events=True)],
-            [sg.Checkbox('Run segmentation evaluation', default=False,
-                         tooltip='',
-                         key='evaluate')]]
         input_layout = [
-            [sg.Text('Input path', size=(15, 1),
-                     auto_size_text=False, justification='right'),
-             sg.InputText('', key='in_path'), sg.FolderBrowse()],
+            [sg.Text('Input path', size=(15, 1), auto_size_text=False, justification='right'),
+             sg.InputText('', key='in_path', tooltip=(
+                 'Input can be either a folder (with one or more sub-folder(s) \n'
+                 'for each CT image) or an Excel sheet with one image path \n'
+                 'per raw. See the documentation for more information.')),
+             sg.FolderBrowse()],
             [sg.Text('Root path', size=(15, 1), auto_size_text=False, justification='right'),
-             sg.InputText('', key='root_path'), sg.FolderBrowse()],
+             sg.InputText('', key='root_path', tooltip=(
+                 'If an Excel sheet was specified as input, then the root path \n'
+                 'is the path that will be prepended to each raw in the \n'
+                 'input file.')),
+             sg.FolderBrowse()],
             [sg.Text('Working directory', size=(15, 1), auto_size_text=False,
                      justification='right'),
-             sg.InputText('', key='work_dir'), sg.FolderBrowse()],
+             sg.InputText('', key='work_dir', tooltip=(
+                 'Path where to save the results. If the directory does not \n'
+                 'exist, it will be created.')),
+             sg.FolderBrowse()],
             [sg.Checkbox('Download weights', change_submits = True, enable_events=True,
-                         default=True, key='download_weights', disabled=disable_dw_weights)],
+                         default=True, key='download_weights', disabled=disable_dw_weights,
+                         tooltip='Whether or not to download the weights from the \n'
+                         'repository. It does not work for custom settings.')],
             [sg.Text('Weights directory', size=(15, 1), auto_size_text=False,
                      justification='right'),
-             sg.InputText('', disabled = not disable_dw_weights, key='weights_dir'),
+             sg.InputText('', disabled = not disable_dw_weights, key='weights_dir',
+                          tooltip=('Specify here the path to the folder containing the \n'
+                                   'network weights. If you do not have them, please tick \n'
+                                   'the "Download weights" box above and the application \n'
+                                   'will try to download them from the repository.\n'
+                                   'N.B. The download does not work for custom settings.')),
              sg.FolderBrowse(disabled = not disable_dw_weights, key='weights_dir_2')]
             ]
 
@@ -588,10 +596,39 @@ def build_gui():
                              'that will be used to resample the image before\n'
                              'running the inference. The network has been trained\n'
                              'using images with a defined resolution. The default\n'
-                             'values for the resolution have been stored here, \n'
-                             'however, if the network was retrained with different\n'
+                             'values for the resolution have been stored in the 3 \n'
+                             'pre-defined configuration files, however, \n'
+                             'if the network was re-trained with different\n'
                              'resolution, you can simply change it here.')],
             [sg.Column(colx), sg.Column(coly), sg.Column(colz)]]
+
+        post_proc_layout = [
+            [sg.Radio('Cluster correction', 'pp', default=cluster_correction,
+                      key='cluster_correction', change_submits = True, enable_events=True,
+                      tooltip=('This correction should be more accurate wrt the standard\n'
+                               'binarization and it is recommended for high res and human \n'
+                               'segmentation because it should remove all the small isolated \n'
+                               'wrongly segmented areas. However is more time consuming and \n'
+                               'relies on external software (FSL), so run it only if needed.')),
+             sg.Text('Minimum extent', size=(15, 1), auto_size_text=False, justification='right',
+                     tooltip=('If "Cluster correction" is selected, then here you can \n'
+                              'specify the minimum number of voxels that a cluster can \n'
+                              'have in order to be considered as possible lung. This value \n'
+                              'depends on the resolution and size of the CT image. Usually \n'
+                              'for low res mice 350 is enough, while for high res mice and \n'
+                              'humans can be set to 100000 and 300000, respectively.')),
+             sg.InputText(min_extent, key='min_extent', disabled = not cluster_correction,
+                          size=(15, 10))],
+            [sg.Radio('Otsu binarizazion', 'pp', default=not cluster_correction,
+                      change_submits = True, enable_events=True,
+                      tooltip=('If selected, the final segmented image will be binarized\n'
+                               'using the Otsu thresholding method.'))],
+            [sg.Checkbox('Run segmentation evaluation', default=False,
+                         tooltip=('If ground truth segmentations are available, \n'
+                                  'you can specify them in the Excel sheet and select\n'
+                                  'this in order to evaluate the CNN segmentation. Both\n'
+                                  'Dice score and Hausdorff distance will be calculated.'),
+                         key='evaluate')]]
 
         layout = [
             [sg.Text(app_name, size=(55, 1), font=("Helvetica", 20))],
