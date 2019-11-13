@@ -508,7 +508,7 @@ def build_gui():
                         size=(30, 3), default_values='Low resolution mouse')],
             [sg.Submit(), sg.Quit()]
         ]
-        window = sg.Window('SIENA', default_element_size=(40, 1)).Layout(layout)
+        window = sg.Window('SeANNA - Config', default_element_size=(40, 1)).Layout(layout)
         config_button, values = window.Read()
         if config_button == 'Quit':
             sys.exit()
@@ -639,7 +639,7 @@ def build_gui():
             [sg.Frame('Post-processing specs', post_proc_layout, font='Any 12',
                       title_color='black')],
             [sg.Submit(), sg.Quit(), sg.Cancel()]]
-        main_window = sg.Window('SIENA2', default_element_size=(50, 1)).Layout(layout)
+        main_window = sg.Window('SeANNA - Main', default_element_size=(50, 1)).Layout(layout)
         while True:
             main_button, values = main_window.Read()
             if weights_url is not None:
