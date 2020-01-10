@@ -151,7 +151,7 @@ class ImageCropping():
         while not_correct:
             im[im<np.min(im)+824] = np.min(im)
             im[im == 0] = np.min(im)
-            for offset in [20, 10, 0, -10, -20]:
+            for offset in [20, 10, 0, -10, -15]:
                 _, y1 = np.where(im[:, :, mean_Z+offset] != np.min(im))
 
                 im[im==np.min(im)] = 0
