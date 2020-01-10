@@ -3,11 +3,12 @@ import logging
 import os
 from pathlib import Path
 import nrrd
+import pickle
 import numpy as np
 from skimage.transform import resize
 from lung_segmentation.utils import (binarization, dice_calculation,
                                      violin_box_plot, run_cluster_correction,
-                                     run_hd, batch_processing)
+                                     run_hd, batch_processing, resize_image)
 from lung_segmentation.models import unet_lung
 from lung_segmentation.base import LungSegmentationBase
 
@@ -177,3 +178,33 @@ class LungSegmentationInference(LungSegmentationBase):
                     evaluated[np.where(np.asarray(all_hd)==np.max(all_hd))[0][0]])
         LOGGER.info('Image with maximum HD_max: %s',
                     evaluated[np.where(np.asarray(all_hd_100)==np.max(all_hd_100))[0][0]])
+
+
+class IndividualInference(LungSegmentationInference):
+
+    def get_data(self):
+        self.testing = True
+        self.predicted_images = []
+
+    def preprocessing(self, new_spacing=(0.35, 0.35, 0.35)):
+
+        image = self.input_path
+        LOGGER.info('Processing file {}'.format(image))
+        if os.path.isfile(os.path.join(self.work_dir, 'image_info.p')):
+            with open(os.path.join(self.work_dir, 'image_info.p'), 'rb') as fp:
+                self.image_info = pickle.load(fp)
+
+        if new_spacing is not None:
+            LOGGER.info('Input image will be now resampled to have '
+                        '{0}x{1}x{2} mm resolution.'
+                        .format(new_spacing[0], new_spacing[1], new_spacing[2]))
+            _, _, img_path, orig_size = resize_image(image, new_spacing=new_spacing)
+        else:
+            img_path = image
+            orig_size = None
+        self.preprocessed_images.append(img_path)
+        self.image_info[img_path] = {}
+        self.image_info[img_path]['orig_size'] = orig_size
+
+        with open(os.path.join(self.work_dir, 'image_info.p'), 'wb') as fp:
+            pickle.dump(self.image_info, fp, protocol=pickle.HIGHEST_PROTOCOL)

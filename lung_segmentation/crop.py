@@ -206,6 +206,7 @@ class ImageCropping():
                                'is still not the same going from down to up. This CT cannot be '
                                'cropped properly and will be excluded.')
                 proccess = False
+                not_correct = False
 
         if process:
             im, _ = nrrd.read(self.image)

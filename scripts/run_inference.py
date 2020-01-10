@@ -20,14 +20,14 @@ if __name__ == "__main__":
     PARSER.add_argument('--work_dir', '-w', type=str,
                         help=('Directory where to store the results.'))
     PARSER.add_argument('--configuration', '-c', type=str,
-                        choices=['standard', 'highres', 'human', 'None'], default='standard',
+                        choices=['standard', 'highres', 'human', 'custom'], default='standard',
                         help=('Configuation to use based on your data. See documentation for '
                               'more help. Default is "standard".'))
     PARSER.add_argument('--min-extent', type=int, default=350,
                         help=('Minimum lung extension (in voxels) that will be used to '
                               'run the final correction after the inference. For mouse acquired '
                               'with clinical CT, 350 should be enough, while for micro-CT or human '
-                              'date this should be set to 30000-40000. Default is 350.'))
+                              'data this should be set to 100000-300000. Default is 350.'))
     PARSER.add_argument('--dcm-check', '-dc', action='store_true',
                         help=('Whether or not to carefully check the DICOM header. '
                               'This check is based on our data and might too stringent for other'
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     WEIGHTS_DIR = os.path.join(PARENT_DIR, 'weights/')
     BIN_URL = 'https://angiogenesis.dkfz.de/oncoexpress/software/delineation/bin/bin.tar.gz'
 
-    if ARGS.configuration == 'None':
+    if ARGS.configuration == 'custom':
         DEEP_CHECK = ARGS.dcm_check
         NEW_SPACING = ARGS.spacing
         MIN_EXTENT = ARGS.min_extent
