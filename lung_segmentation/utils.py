@@ -435,7 +435,7 @@ def run_cluster_correction(image, th=0.5, min_extent=10000):
     nii2save = nib.Nifti1Image(im_nrrd, affine=np.eye(4))
     nib.save(nii2save, out_nii)
 
-    cmd = 'cluster -i "{0}" -t "{1}" -o "{2}" --minextent={3} --olmax={4}'.format(
+    cmd = 'cluster -i "{0}" -t "{1}" -o "{2}" --minextent={3} --olmax="{4}"'.format(
         out_nii, th, out_image, min_extent, out_text)
     _ = sp.check_output(cmd, shell=True)
     with open(out_text, 'r') as f:
@@ -452,17 +452,17 @@ def run_cluster_correction(image, th=0.5, min_extent=10000):
                   ' usual number of clusters should be not greater than 2.'.format(len(clusters), image))
         out_cl = image.split('.nii.gz')[0]+'_cc_{}.nii.gz'.format(cl)
         if len(clusters) > 1:
-            cmd = 'fslmaths {0} -uthr {1} -thr {1} -bin {2}'.format(out_image, cl, out_cl)
+            cmd = 'fslmaths "{0}" -uthr {1} -thr {1} -bin "{2}"'.format(out_image, cl, out_cl)
         else:
-            cmd = 'fslmaths {0} -uthr {1} -thr {1} -bin {2}'.format(out_image, cl, outname)
+            cmd = 'fslmaths "{0}" -uthr {1} -thr {1} -bin "{2}"'.format(out_image, cl, outname)
         sp.check_output(cmd, shell=True)
         if len(clusters) > 1:
             if i == 0:
-                add_cmd = 'fslmaths {} -add'.format(out_cl)
+                add_cmd = 'fslmaths "{}" -add'.format(out_cl)
             elif i == len(clusters)-1:
-                add_cmd = add_cmd + ' {0} {1}'.format(out_cl, outname)
+                add_cmd = add_cmd + ' "{0}" "{1}"'.format(out_cl, outname)
             else:
-                add_cmd = add_cmd + ' {0} -add'.format(out_cl)
+                add_cmd = add_cmd + ' "{0}" -add'.format(out_cl)
     if add_cmd is not None:
         sp.check_output(add_cmd, shell=True)
 
