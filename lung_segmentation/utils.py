@@ -435,7 +435,7 @@ def run_cluster_correction(image, th=0.5, min_extent=10000):
     nii2save = nib.Nifti1Image(im_nrrd, affine=np.eye(4))
     nib.save(nii2save, out_nii)
 
-    cmd = 'cluster -i {0} -t {1} -o {2} --minextent={3} --olmax={4}'.format(
+    cmd = 'cluster -i "{0}" -t "{1}" -o "{2}" --minextent={3} --olmax={4}'.format(
         out_nii, th, out_image, min_extent, out_text)
     _ = sp.check_output(cmd, shell=True)
     with open(out_text, 'r') as f:
