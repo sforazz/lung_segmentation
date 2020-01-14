@@ -256,7 +256,7 @@ class ImageCropping():
                         missing_at_edge = True
                 for ind in names2remove:
                     image_names.remove(ind)
-                if np.ceil(((last_edge - first_edge)*space_x)/6) < min_size_x and not missing_at_edge:
+                if (last_edge - first_edge) < (6*min_size_x+5*(min_size_x/1.3)) and not missing_at_edge:
                     LOGGER.info('The distance between the first and the last detected edge is '
                                 'not sufficient to accomodate 6 mice. This might mean that '
                                 'there is one missing mouse on one side that was not detected '
