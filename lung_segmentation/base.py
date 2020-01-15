@@ -50,7 +50,7 @@ class LungSegmentationBase():
         "Function to get data"
         raise NotImplementedError('This method has not been implemented yet.')
 
-    def preprocessing(self, new_spacing=(0.35, 0.35, 0.35)):
+    def preprocessing(self, new_spacing=(0.35, 0.35, 0.35), accurate_naming=True):
         "Function to pre-process the data"
 
         if os.path.isfile(os.path.join(self.work_dir, 'processed_DICOM.txt')):
@@ -123,7 +123,7 @@ class LungSegmentationBase():
                                 'of the original CT has only one subject already).')
                     prefix = 'Raw_data'
                     cropping = ImageCropping(converted_data, prefix=prefix)
-                    images = cropping.crop_wo_mask()
+                    images = cropping.crop_wo_mask(accurate_naming=accurate_naming)
                     masks = []
                 LOGGER.info('Found {} subjects in the NRRD file.'.format(len(images)))
                 for j, image in enumerate(images):

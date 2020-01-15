@@ -307,7 +307,7 @@ class ImageCropping():
                             image_names.remove(ind)
 
             else:
-                image_names = ['subject_0{}'.format(x+1) for x in range(int(len(xx)//2))]
+                image_names = ['mouse_0{}'.format(x+1) for x in range(int(len(xx)//2))]
 
             for n_mice, i in enumerate(range(0, len(xx), 2)):
                 coordinates = {}

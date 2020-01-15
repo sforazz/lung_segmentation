@@ -49,6 +49,10 @@ if __name__ == "__main__":
                               'based on the Otsu threshold. If provided, take also a look to the '
                               '--min-extent argument since it is used to choose the cluster '
                               'dimension. Default is False.'))
+    PARSER.add_argument('--accurate-naming', '-a', action='store_true',
+                        help=('Whether or not to name the cropped mouse accurately. This is considered '
+                              'only for mouse acquired with clinical scan and cropped automatically. '
+                              'Default is False.'))
     PARSER.add_argument('--evaluate', action='store_true',
                         help=('If ground truth lung masks are available, the result of the '
                               'segmentation can be tested against them. In this case, both '
@@ -163,7 +167,7 @@ if __name__ == "__main__":
 
     INFERENCE = LungSegmentationInference(ARGS.input_path, ARGS.work_dir, deep_check=DEEP_CHECK)
     INFERENCE.get_data(root_path=ARGS.root_path)
-    INFERENCE.preprocessing(new_spacing=NEW_SPACING)
+    INFERENCE.preprocessing(new_spacing=NEW_SPACING, accurate_naming=ARGS.accurate_naming)
     INFERENCE.create_tensors()
     INFERENCE.run_inference(weights=WEIGHTS)
     INFERENCE.save_inference(min_extent=MIN_EXTENT, cluster_correction=CLUSTER_CORRECTION)
