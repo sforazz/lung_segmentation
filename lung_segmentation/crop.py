@@ -230,82 +230,83 @@ class ImageCropping():
                 names2remove = []
                 hole_found = 0
                 missing_at_edge = False
-                if first_edge > min_first_edge:
-                    missing_left = int(np.round((first_edge-min_first_edge)/(min_size_x*2)))
-                    if missing_left > 0:
-                        LOGGER.info('There are {0} voxels between the left margin of the '
-                                    'image and the first detected edge. This usually means that '
-                                    'there are {1} missing mice on the left-end side. '
-                                    'The mouse naming will be updated accordingly.'
-                                    .format(first_edge-min_first_edge, missing_left))
-                        for m in range(missing_left):
-                            names2remove.append(image_names[m])
-                        hole_found = hole_found+missing_left
-                        missing_at_edge = True
-                if last_edge < min_last_edge:
-                    missing_right = int(np.round((min_last_edge-last_edge)/(min_size_x*2)))
-                    if missing_right > 0:
-                        LOGGER.info('There are {0} voxels between the right margin of the '
-                                    'image and the last detected edge. This usually means that '
-                                    'there are {1} missing mice on the right-end side. '
-                                    'The mouse naming will be updated accordingly.'
-                                    .format(min_last_edge-last_edge, missing_right))
-                        for m in range(missing_right):
-                            names2remove.append(image_names[-1-m])
-                        hole_found = hole_found+missing_right
-                        missing_at_edge = True
-                for ind in names2remove:
-                    image_names.remove(ind)
-                if (last_edge - first_edge) < (6*min_size_x+5*(min_size_x/1.3)) and not missing_at_edge:
-                    LOGGER.info('The distance between the first and the last detected edge is '
-                                'not sufficient to accomodate 6 mice. This might mean that '
-                                'there is one missing mouse on one side that was not detected '
-                                'before. A further check will be performed in order to identify it.')
-                    if (first_edge-min_first_edge) >= min_last_edge-last_edge:
-                        LOGGER.info('Removing the first mouse.')
-                        image_names.remove('mouse_01')
-                    else:
-                        LOGGER.info('Removing the last mouse.')
-                        image_names.remove('mouse_06')
-                    hole_found += 1
-                mouse_distances = []
-
-                for i, ind in enumerate(range(1, len(xx)-1, 2)):
-                    mouse_index = image_names[i]
-                    distance = xx[ind+1] - xx[ind]
-                    mouse_distances.append(distance)
-                    hole_dimension = int(np.round(distance/(min_size_x*1.5)))
-                    if hole_dimension >= 2:
-                        names2remove = []
-                        LOGGER.info('The distance between mouse {0} and mouse {1} is '
-                                    '{4} voxels, which is {2} times greater than the minimum '
-                                    'mouse size. This could mean that {3} mice are missing'
-                                    ' in this batch. They will'
-                                    ' be ignored and the naming will be updated accordingly.'
-                                    .format(mouse_index, image_names[i+1], hole_dimension,
-                                            hole_dimension-1, distance))
-                        for m in range(hole_dimension-1):
-                            names2remove.append(image_names[i+m+1])
-                        for ind in names2remove:
-                            image_names.remove(ind)
-                        hole_found += 1
-                if hole_found + int(len(xx)/2) != 6:
-                    names2remove = []
-                    still_missing = 6 - (hole_found + int(len(xx)/2))
-                    LOGGER.info('It seems that not all holes has been identified, since the '
-                                'detected mice are {0} and the hole detected are {1}. '
-                                'This means that there are still {2} mice missing in order to '
-                                'reach the standard mice number (6). I will remove the names '
-                                'belonging to the mouse with the biggest distance.'
-                                .format(int(len(xx)/2), hole_found, still_missing))
-                    for i in range(still_missing):
-                        max_distance = np.where(np.asarray(mouse_distances)==
-                                                np.max(np.asarray(mouse_distances)))[0][0]
-                        names2remove.append(image_names[max_distance+1])
-                        mouse_distances[max_distance] = 0
+                if int(len(xx)/2) < 6:
+                    LOGGER.info('Less than 6 mice detected, I will try to rename them correctly.')
+                    if first_edge > min_first_edge:
+                        missing_left = int(np.round((first_edge-min_first_edge)/(min_size_x*2)))
+                        if missing_left > 0:
+                            LOGGER.info('There are {0} voxels between the left margin of the '
+                                        'image and the first detected edge. This usually means that '
+                                        'there are {1} missing mice on the left-end side. '
+                                        'The mouse naming will be updated accordingly.'
+                                        .format(first_edge-min_first_edge, missing_left))
+                            for m in range(missing_left):
+                                names2remove.append(image_names[m])
+                            hole_found = hole_found+missing_left
+                            missing_at_edge = True
+                    if last_edge < min_last_edge:
+                        missing_right = int(np.round((min_last_edge-last_edge)/(min_size_x*2)))
+                        if missing_right > 0:
+                            LOGGER.info('There are {0} voxels between the right margin of the '
+                                        'image and the last detected edge. This usually means that '
+                                        'there are {1} missing mice on the right-end side. '
+                                        'The mouse naming will be updated accordingly.'
+                                        .format(min_last_edge-last_edge, missing_right))
+                            for m in range(missing_right):
+                                names2remove.append(image_names[-1-m])
+                            hole_found = hole_found+missing_right
+                            missing_at_edge = True
                     for ind in names2remove:
-                            image_names.remove(ind)
-
+                        image_names.remove(ind)
+                    if (last_edge - first_edge) < (6*min_size_x+5*(min_size_x/1.3)) and not missing_at_edge:
+                        LOGGER.info('The distance between the first and the last detected edge is '
+                                    'not sufficient to accomodate 6 mice. This might mean that '
+                                    'there is one missing mouse on one side that was not detected '
+                                    'before. A further check will be performed in order to identify it.')
+                        if (first_edge-min_first_edge) >= min_last_edge-last_edge:
+                            LOGGER.info('Removing the first mouse.')
+                            image_names.remove('mouse_01')
+                        else:
+                            LOGGER.info('Removing the last mouse.')
+                            image_names.remove('mouse_06')
+                        hole_found += 1
+                    mouse_distances = []
+    
+                    for i, ind in enumerate(range(1, len(xx)-1, 2)):
+                        mouse_index = image_names[i]
+                        distance = xx[ind+1] - xx[ind]
+                        mouse_distances.append(distance)
+                        hole_dimension = int(np.round(distance/(min_size_x*1.5)))
+                        if hole_dimension >= 2:
+                            names2remove = []
+                            LOGGER.info('The distance between mouse {0} and mouse {1} is '
+                                        '{4} voxels, which is {2} times greater than the minimum '
+                                        'mouse size. This could mean that {3} mice are missing'
+                                        ' in this batch. They will'
+                                        ' be ignored and the naming will be updated accordingly.'
+                                        .format(mouse_index, image_names[i+1], hole_dimension,
+                                                hole_dimension-1, distance))
+                            for m in range(hole_dimension-1):
+                                names2remove.append(image_names[i+m+1])
+                            for ind in names2remove:
+                                image_names.remove(ind)
+                            hole_found += 1
+                    if hole_found + int(len(xx)/2) < 6:
+                        names2remove = []
+                        still_missing = 6 - (hole_found + int(len(xx)/2))
+                        LOGGER.info('It seems that not all holes has been identified, since the '
+                                    'detected mice are {0} and the hole detected are {1}. '
+                                    'This means that there are still {2} mice missing in order to '
+                                    'reach the standard mice number (6). I will remove the names '
+                                    'belonging to the mouse with the biggest distance.'
+                                    .format(int(len(xx)/2), hole_found, still_missing))
+                        for i in range(still_missing):
+                            max_distance = np.where(np.asarray(mouse_distances)==
+                                                    np.max(np.asarray(mouse_distances)))[0][0]
+                            names2remove.append(image_names[max_distance+1])
+                            mouse_distances[max_distance] = 0
+                        for ind in names2remove:
+                                image_names.remove(ind)
             else:
                 image_names = ['mouse_0{}'.format(x+1) for x in range(int(len(xx)//2))]
 
