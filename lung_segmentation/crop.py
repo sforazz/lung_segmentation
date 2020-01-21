@@ -13,6 +13,8 @@ import cv2
 from lung_segmentation.utils import split_filename
 import matplotlib.pyplot as plot
 from scipy.ndimage.interpolation import rotate
+from scipy import ndimage
+from skimage.measure import label, regionprops
 
 
 LOGGER = logging.getLogger('lungs_segmentation')
@@ -120,12 +122,13 @@ class ImageCropping():
         space_x = np.abs(imageHD['space directions'][0, 0])
         space_y = np.abs(imageHD['space directions'][1, 1])
         space_z = np.abs(imageHD['space directions'][2, 2])
+        origin_x = imageHD['space origin'][0]
         process = True
         indY = None
         out = []
 
-        min_first_edge = int(63 / space_x)
-        min_last_edge = im.shape[0] - int(63 / space_x)
+        min_first_edge = int(80 / space_x)
+        min_last_edge = im.shape[0] - int(80 / space_x)
 
         min_size_x = int(17 / space_x)
         if min_size_x > im.shape[0]:
@@ -141,11 +144,6 @@ class ImageCropping():
         _, _, dimZ = im.shape
 
         mean_Z = int(np.ceil((dimZ)/2))
-
-#         average_intensity = (np.max(im)-np.min(im))/7
-#         im[im<np.min(im)+average_intensity] = np.min(im)
-#         im[im<np.min(im)+824] = np.min(im)
-
         n_mice_detected = []
         not_correct = True
         angle = 0
@@ -153,39 +151,17 @@ class ImageCropping():
         while not_correct:
             im[im<np.min(im)+824] = np.min(im)
             im[im == 0] = np.min(im)
-            for offset in [20, 10, 0, -10, -15]:
+            for offset in [20, 10, 0, -10, -20]:
                 _, y1 = np.where(im[:, :, mean_Z+offset] != np.min(im))
-
-                im[im==np.min(im)] = 0
-                im[im!=0] = 1
-                try:
-                    im[:, np.min(y1)+min_size_y+10:, mean_Z+offset] = 0
-                except:
-                    print()
-                nb_components, output, stats, _ = (
-                    cv2.connectedComponentsWithStats(im[:, :, mean_Z+offset].astype(np.uint8),
-                                                     connectivity=8))
-                sizes = stats[1:, -1]
-                nb_components = nb_components - 1
-                min_size = 100/space_x
-                img2 = np.zeros((output.shape))
-                for i in range(0, nb_components):
-                    if sizes[i] >= min_size:
-                        img2[output == i + 1] = 1
-                x, y = np.where(img2!=0)
-                if x.any():
-                    if indY is None and offset == 0:
-                        indY = np.max(y)
-                    uniq = sorted(list(set(x)))
-
-                    xx = [uniq[0]]
-                    for i in range(1, len(uniq)):
-                        if uniq[i]!=uniq[i-1]+1:
-                            xx.append(uniq[i-1])
-                            xx.append(uniq[i])
-                    xx.append(uniq[-1])
-                    xx = sorted(list(set(xx)))
-                    n_mice_detected.append(int(len(xx)//2))
+                im[:, np.min(y1)+min_size_y+10:, mean_Z+offset] = 0
+                img2, _, _ = self.find_cluster(im[:, :, mean_Z+offset], space_x)
+                labels = label(img2)
+                regions = regionprops(labels)
+                if regions:
+                    n_mice_detected.append(len(regions))
+                    if offset == 0:
+                        xx = [x for y in [[x.bbox[0], x.bbox[2]] for x in regions] for x in y]
+                        yy = [x for y in [[x.bbox[1], x.bbox[3]] for x in regions] for x in y]
                 else:
                     n_mice_detected.append(0)
             if len(set(n_mice_detected)) == 1 or (len(set(n_mice_detected)) == 2 and 0 in set(n_mice_detected)):
@@ -207,7 +183,7 @@ class ImageCropping():
                 LOGGER.warning('CT image has been rotated of 14° but the number of mice detected '
                                'is still not the same going from down to up. This CT cannot be '
                                'cropped properly and will be excluded.')
-                proccess = False
+                process = False
                 not_correct = False
 
         if process:
@@ -215,14 +191,48 @@ class ImageCropping():
             if angle != 0:
                 im = rotate(im, angle, (0, 2), reshape=False, order=0)
                 im[im == 0] = np.min(im)
+            im[im<np.min(im)+824] = np.min(im)
+            im[im == 0] = np.min(im)
+            im = im[xx[0]:xx[1], yy[0]:yy[1], :]
+            hole_size = []
+            for z in range(im.shape[2]):
+                _, _, zeros = self.find_cluster(im[:, :, z], space_x)
+                hole_size.append(zeros)
+            mean_Z = np.where(np.asarray(hole_size)==np.max(hole_size))[0][0]
+            im, _ = nrrd.read(self.image)
+            if angle != 0:
+                im = rotate(im, angle, (0, 2), reshape=False, order=0)
+                im[im == 0] = np.min(im)
+            im[im<np.min(im)+824] = np.min(im)
+            im[im == 0] = np.min(im)
 
-            if len(xx) % 2 != 0:
-                LOGGER.warning('The number of detected edges is odd. This should not '
-                               'happen and it could mean that the cropping is wrong. '
-                               'The algorithm will remove the last edge and save the '
-                               'images but there are high chances that this is wrong. '
-                               'Please check the results.')
-                xx.remove(xx[-1])
+            _, y1 = np.where(im[:, :, mean_Z] != np.min(im))
+            im[:, np.min(y1)+min_size_y+10:, mean_Z] = 0
+            img2, _, _ = self.find_cluster(im[:, :, mean_Z], space_x)
+            labels = label(img2)
+            regions = regionprops(labels)
+            xx = [x for y in [[x.bbox[0], x.bbox[2]] for x in regions] for x in y]
+            yy = [x for y in [[x.bbox[1], x.bbox[3]] for x in regions] for x in y]
+
+            im, _ = nrrd.read(self.image)
+            if angle != 0:
+                im = rotate(im, angle, (0, 2), reshape=False, order=0)
+                im[im == 0] = np.min(im)
+
+            average_mouse_size = int(np.round(np.mean([xx[i+1]-xx[i] for i in range(0, len(xx), 2)])))
+            fov_mm = space_x*im.shape[0]
+            average_hole_size = average_mouse_size // 2
+            max_fov = (average_mouse_size + average_hole_size)*5 + average_mouse_size
+            max_fov_mm = max_fov*space_x
+            fov_diff_mm = (fov_mm - max_fov_mm)/2
+#             fov_shift = int(np.round((origin_x - (fov_mm/2))/space_x))
+
+            if fov_diff_mm <= 0:
+                LOGGER.warning('The FOV size seems too small to accomodate six mice. This might mean '
+                               'that the CT image was not acquired based on a 6-mice batch. For this reasong, '
+                               'the accurate naming, if selected, will be turned off, since it is based on '
+                               'the assumption that the CT image was acquired with a FOV big enough for 6 mice.')
+                accurate_naming = False
             if accurate_naming:
                 image_names = MOUSE_NAMES.copy()
                 first_edge = xx[0]
@@ -230,10 +240,13 @@ class ImageCropping():
                 names2remove = []
                 hole_found = 0
                 missing_at_edge = False
+                min_first_edge = int(np.round(fov_diff_mm/space_x))
+                min_last_edge = min_first_edge + max_fov
+                min_size_x = average_mouse_size
                 if int(len(xx)/2) < 6:
                     LOGGER.info('Less than 6 mice detected, I will try to rename them correctly.')
                     if first_edge > min_first_edge:
-                        missing_left = int(np.round((first_edge-min_first_edge)/(min_size_x*2)))
+                        missing_left = int(np.round((first_edge-min_first_edge)/(min_size_x+average_hole_size)))
                         if missing_left > 0:
                             LOGGER.info('There are {0} voxels between the left margin of the '
                                         'image and the first detected edge. This usually means that '
@@ -245,7 +258,7 @@ class ImageCropping():
                             hole_found = hole_found+missing_left
                             missing_at_edge = True
                     if last_edge < min_last_edge:
-                        missing_right = int(np.round((min_last_edge-last_edge)/(min_size_x*2)))
+                        missing_right = int(np.round((min_last_edge-last_edge)/(min_size_x+average_hole_size)))
                         if missing_right > 0:
                             LOGGER.info('There are {0} voxels between the right margin of the '
                                         'image and the last detected edge. This usually means that '
@@ -258,25 +271,14 @@ class ImageCropping():
                             missing_at_edge = True
                     for ind in names2remove:
                         image_names.remove(ind)
-                    if (last_edge - first_edge) < (6*min_size_x+5*(min_size_x/1.3)) and not missing_at_edge:
-                        LOGGER.info('The distance between the first and the last detected edge is '
-                                    'not sufficient to accomodate 6 mice. This might mean that '
-                                    'there is one missing mouse on one side that was not detected '
-                                    'before. A further check will be performed in order to identify it.')
-                        if (first_edge-min_first_edge) >= min_last_edge-last_edge:
-                            LOGGER.info('Removing the first mouse.')
-                            image_names.remove('mouse_01')
-                        else:
-                            LOGGER.info('Removing the last mouse.')
-                            image_names.remove('mouse_06')
-                        hole_found += 1
+
                     mouse_distances = []
-    
+
                     for i, ind in enumerate(range(1, len(xx)-1, 2)):
                         mouse_index = image_names[i]
                         distance = xx[ind+1] - xx[ind]
                         mouse_distances.append(distance)
-                        hole_dimension = int(np.round(distance/(min_size_x*1.5)))
+                        hole_dimension = int(np.round(distance/(min_size_x)))
                         if hole_dimension >= 2:
                             names2remove = []
                             LOGGER.info('The distance between mouse {0} and mouse {1} is '
@@ -294,7 +296,7 @@ class ImageCropping():
                     if hole_found + int(len(xx)/2) < 6:
                         names2remove = []
                         still_missing = 6 - (hole_found + int(len(xx)/2))
-                        LOGGER.info('It seems that not all holes has been identified, since the '
+                        LOGGER.warning('It seems that not all holes has been identified, since the '
                                     'detected mice are {0} and the hole detected are {1}. '
                                     'This means that there are still {2} mice missing in order to '
                                     'reach the standard mice number (6). I will remove the names '
@@ -307,18 +309,23 @@ class ImageCropping():
                             mouse_distances[max_distance] = 0
                         for ind in names2remove:
                                 image_names.remove(ind)
+                    elif hole_found + int(len(xx)/2) > 6:
+                        LOGGER.warning('The accurate naming failed because the algorithm detected too many '
+                                    'missing mice. For this reason the accurate naming will be swithed off.')
+                        image_names = ['mouse_0{}'.format(x+1) for x in range(int(len(xx)//2))]
             else:
                 image_names = ['mouse_0{}'.format(x+1) for x in range(int(len(xx)//2))]
 
+            offset_box = average_hole_size // 3
+            y_min = np.min(yy) - offset_box
+            y_max = np.max(yy) + offset_box
             for n_mice, i in enumerate(range(0, len(xx), 2)):
                 coordinates = {}
-                mp = int((xx[i+1] + xx[i])/2)
-                y0 = indY-int(min_size_y) if indY-int(min_size_y) > 0 else 0
-                croppedImage = im[xx[i]:xx[i+1], y0:indY,
+                croppedImage = im[xx[i]-offset_box:xx[i+1]+offset_box, y_min:y_max,
                                   mean_Z-int(min_size_z/2):mean_Z+int(min_size_z/2)]
                 imageHD['sizes'] = np.array(croppedImage.shape)
-                coordinates['x'] = [mp-int(min_size_x/2), mp+int(min_size_x/2)]
-                coordinates['y'] = [y0, indY]
+                coordinates['x'] = [xx[i]-offset_box, xx[i]+offset_box]
+                coordinates['y'] = [y_min, y_max]
                 coordinates['z'] = [mean_Z-int(min_size_z/2), mean_Z+int(min_size_z/2)]
 
                 with open(self.imageOutname+'_{}.p'.format(image_names[n_mice]), 'wb') as fp:
@@ -330,3 +337,26 @@ class ImageCropping():
 
         LOGGER.info('Cropping done!')
         return out
+
+    def find_cluster(self, im, spacing):
+
+        im[im==np.min(im)] = 0
+        im[im!=0] = 1
+
+        nb_components, output, stats, _ = (
+            cv2.connectedComponentsWithStats(im.astype(np.uint8),
+                                             connectivity=8))
+        sizes = stats[1:, -1]
+        nb_components = nb_components - 1
+        min_size = 100/spacing
+        img2 = np.zeros((output.shape))
+        cluster_size = []
+        for i in range(0, nb_components):
+            if sizes[i] >= min_size:
+                cluster_size.append(sizes[i])
+                img2[output == i + 1] = 1
+        img2_filled = ndimage.binary_fill_holes(img2)
+        zeros = np.sum(img2_filled-img2)
+
+        return img2, cluster_size, zeros
+    
