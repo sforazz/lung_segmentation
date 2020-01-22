@@ -73,7 +73,10 @@ def load_data_2D(data_dir, data_type, data_list=[], array=None, mb=[], bs=None, 
             data_path = data_list[index]
             array_orig, _ = nrrd.read(data_path)
         if normalization:
-            array_orig = normalize(array_orig, method='0-1')
+            try:
+                array_orig = normalize(array_orig, method='0-1')
+            except:
+              print()
         if binarize:
             array_orig[array_orig != 0] = 1
 

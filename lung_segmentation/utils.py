@@ -243,6 +243,8 @@ def dicom_check(raw_data, temp_dir, deep_check=True):
             if len(dicom_vols) > 1 and '50s' in dcm_hd.SeriesDescription and not processed:
                 dcm = DicomInfo(dicom_vols)
                 _, tag = dcm.get_tag(['AcquisitionDate', 'SeriesTime'])
+                if len(tag['SeriesTime']) > 1:
+                    dicom_vols = [x for x in dicoms if str(pydicom.read_file(x).SeriesTime)==tag['SeriesTime'][0]]
                 folder_name = temp_dir+'/{0}_date_{1}_time_{2}'.format(
                     basename, tag['AcquisitionDate'][0], tag['SeriesTime'][0])
                 slices = [pydicom.read_file(x).InstanceNumber for x in dicom_vols]

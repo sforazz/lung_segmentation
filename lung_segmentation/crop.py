@@ -292,7 +292,7 @@ class ImageCropping():
                                 names2remove.append(image_names[i+m+1])
                             for ind in names2remove:
                                 image_names.remove(ind)
-                            hole_found += 1
+                            hole_found += (hole_dimension-1)
                     if hole_found + int(len(xx)/2) < 6:
                         names2remove = []
                         still_missing = 6 - (hole_found + int(len(xx)/2))
