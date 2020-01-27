@@ -137,7 +137,7 @@ class ImageCropping():
         if min_size_y > im.shape[1]:
             min_size_y = im.shape[1]
             indY = im.shape[1]
-        min_size_z = int(45 / space_z)
+        min_size_z = int(60 / space_z)
         if min_size_z > im.shape[2]:
             min_size_z = im.shape[2]
 
@@ -194,11 +194,12 @@ class ImageCropping():
             im[im<np.min(im)+824] = np.min(im)
             im[im == 0] = np.min(im)
             im = im[xx[0]:xx[1], yy[0]:yy[1], :]
-            hole_size = []
-            for z in range(im.shape[2]):
+            hole_size = np.zeros(im.shape[2])
+            offset_z = int((im.shape[2]-min_size_z)/2)
+            for z in range(offset_z, im.shape[2]-offset_z):
                 _, _, zeros = self.find_cluster(im[:, :, z], space_x)
-                hole_size.append(zeros)
-            mean_Z = np.where(np.asarray(hole_size)==np.max(hole_size))[0][0]
+                hole_size[z] = zeros
+            mean_Z = np.where(hole_size==np.max(hole_size))[0][0]
             im, _ = nrrd.read(self.image)
             if angle != 0:
                 im = rotate(im, angle, (0, 2), reshape=False, order=0)
