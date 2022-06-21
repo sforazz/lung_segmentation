@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 pkgs = ['Keras==2.2.4',
 	'nibabel==2.5.0',
-	'numpy==1.17.0',
+	'numpy==1.22.0',
 	'pydicom==1.3.0',
 	'pynrrd==0.4.0',
 	'scikit-learn==0.21.3',
